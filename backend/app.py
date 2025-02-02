@@ -1,7 +1,8 @@
 from flask import Flask, Response, jsonify
 import cv2
 import mediapipe as mp
-from flask_cors import CORS 
+from flask_cors import CORS
+from deepface import DeepFace
 
 app = Flask(__name__)
 CORS(app)
@@ -16,6 +17,13 @@ def init_camera():
         cap.release()
     cap = cv2.VideoCapture(0)
     return cap.isOpened()
+
+def analyze_face(frame):
+    try:
+        result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+        return result[0]['dominant_emotion']
+    except:
+        return None
 
 def generate_frames():
     global cap
@@ -32,9 +40,9 @@ def generate_frames():
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
             try:
+                # Face detection
                 results = face_detection.process(rgb_frame)
 
-                # Draw detection
                 if results.detections:
                     for detection in results.detections:
                         bboxC = detection.location_data.relative_bounding_box
@@ -42,6 +50,13 @@ def generate_frames():
                         x, y, w, h = int(bboxC.xmin * iw), int(bboxC.ymin * ih), \
                                     int(bboxC.width * iw), int(bboxC.height * ih)
                         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                        
+                        # Analyze emotion for detected face
+                        emotion = analyze_face(frame)
+                        if emotion:
+                            cv2.putText(frame, emotion, (x, y-10), 
+                                      cv2.FONT_HERSHEY_SIMPLEX, 0.9, 
+                                      (36,255,12), 2)
 
                 _, buffer = cv2.imencode('.jpg', frame)
                 frame_bytes = buffer.tobytes()
@@ -70,16 +85,11 @@ def analyze_emotion():
     try:
         success, frame = cap.read()
         if not success or frame is None:
-            return jsonify({"error": "Failed to capture frame from camera"})
+            return jsonify({"error": "Failed to capture frame"})
 
-        # Convert frame to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Process frame
-        results = face_detection.process(rgb_frame)
-
-        if results.detections:
-            return jsonify({"status": "Face detected"})
+        emotion = analyze_face(frame)
+        if emotion:
+            return jsonify({"status": "Face detected", "emotion": emotion})
         return jsonify({"status": "No face detected"})
 
     except Exception as e:

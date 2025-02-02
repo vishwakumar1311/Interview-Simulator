@@ -24,29 +24,36 @@ function VideoFeed({ onStopVideo }) {
   }, []);
 
   useEffect(() => {
+    // Initial emotion analysis
     const fetchEmotion = async () => {
       try {
         const response = await axios.get("http://127.0.0.1:5000/analyze_emotion");
-        setEmotion(response.data.status);
+        if (response.data.emotion) {
+          setEmotion(response.data.emotion);
+        } else {
+          setEmotion(response.data.status);
+        }
       } catch (error) {
         setEmotion("Error detecting face");
       }
     };
 
-    const interval = setInterval(fetchEmotion, 10000);
+    fetchEmotion(); // Run immediately on mount
+    const interval = setInterval(fetchEmotion, 60000); // Run every 60 seconds (1 minute)
+    
     return () => clearInterval(interval);
   }, []);
 
   return (
     <div>
-      <h1>Candidate Face Capture</h1>
+      <h1>Interview Simulator</h1>
       <img
         src="http://127.0.0.1:5000/video_feed"
         alt="Candidate Face"
         style={{ width: "600px", borderRadius: "10px" }}
         ref={videoRef}
       />
-      <h2>Status: {emotion}</h2>
+      <h2>Current Emotion: {emotion}</h2>
       <button
         onClick={onStopVideo}
         style={{

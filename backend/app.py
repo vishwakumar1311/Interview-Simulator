@@ -101,6 +101,17 @@ def reset_camera():
         return jsonify({"status": "Camera reset successful"})
     return jsonify({"error": "Failed to reset camera"}), 500
 
+@app.route('/stop_camera', methods=['POST'])
+def stop_camera():
+    global cap
+    try:
+        if cap is not None:
+            cap.release()
+            cap = None
+        return jsonify({"status": "Camera stopped successfully"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to stop camera: {str(e)}"}), 500
+
 def cleanup():
     global cap
     if cap is not None:

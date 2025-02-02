@@ -44,6 +44,20 @@ function VideoFeed({ onStopVideo }) {
     return () => clearInterval(interval);
   }, []);
 
+  const handleStopInterview = async () => {
+    try {
+      // Stop the camera
+      await fetch('http://localhost:5000/stop_camera', {
+        method: 'POST'
+      });
+      // Then call the parent's stop handler
+      onStopVideo();
+    } catch (error) {
+      console.error('Error stopping camera:', error);
+      onStopVideo(); // Still stop the interview even if there's an error
+    }
+  };
+
   return (
     <div>
       <h1>Interview Simulator</h1>
@@ -55,7 +69,7 @@ function VideoFeed({ onStopVideo }) {
       />
       <h2>Current Emotion: {emotion}</h2>
       <button
-        onClick={onStopVideo}
+        onClick={handleStopInterview}
         style={{
           padding: '8px 16px',
           fontSize: '16px',

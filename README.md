@@ -70,8 +70,3 @@ npm start
 
 ## License
 MIT License" > README.md
-
-# Now add and commit the file
-git add README.md
-git commit -m "Add README.md with project documentation"
-git push origin main

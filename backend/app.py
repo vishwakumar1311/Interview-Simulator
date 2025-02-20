@@ -3,6 +3,12 @@ import cv2
 import mediapipe as mp
 from flask_cors import CORS
 from deepface import DeepFace
+import sys
+import os
+
+# Redirect stdout to devnull to suppress progress bar
+old_stdout = sys.stdout
+sys.stdout = open(os.devnull, 'w')
 
 app = Flask(__name__)
 CORS(app)
@@ -20,7 +26,7 @@ def init_camera():
 
 def analyze_face(frame):
     try:
-        result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+        result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False, silent=True)
         return result[0]['dominant_emotion']
     except:
         return None
@@ -124,3 +130,5 @@ if __name__ == "__main__":
         app.run(debug=True)
     finally:
         cleanup()
+        # Restore stdout
+        sys.stdout = old_stdout

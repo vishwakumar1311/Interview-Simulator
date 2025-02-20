@@ -1,9 +1,28 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
-function VideoFeed({ onStopVideo }) {
+function VideoFeed() {
   const [emotion, setEmotion] = useState("Analyzing...");
+  const [hasPermission, setHasPermission] = useState(null);
   const videoRef = useRef();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check camera permissions when component mounts
+    checkCameraPermission();
+  }, []);
+
+  const checkCameraPermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop()); // Stop the stream after permission check
+      setHasPermission(true);
+    } catch (err) {
+      console.error("Camera permission error:", err);
+      setHasPermission(false);
+    }
+  };
 
   const handleCameraError = async () => {
     try {
@@ -19,44 +38,104 @@ function VideoFeed({ onStopVideo }) {
   };
 
   useEffect(() => {
-    const video = videoRef.current;
-    video.onerror = handleCameraError;
-  }, []);
+    if (hasPermission) {
+      const video = videoRef.current;
+      video.onerror = handleCameraError;
+    }
+  }, [hasPermission]);
 
   useEffect(() => {
-    // Initial emotion analysis
-    const fetchEmotion = async () => {
-      try {
-        const response = await axios.get("http://127.0.0.1:5000/analyze_emotion");
-        if (response.data.emotion) {
-          setEmotion(response.data.emotion);
-        } else {
-          setEmotion(response.data.status);
+    if (hasPermission) {
+      const fetchEmotion = async () => {
+        try {
+          const response = await axios.get("http://127.0.0.1:5000/analyze_emotion");
+          if (response.data.emotion) {
+            setEmotion(response.data.emotion);
+          } else {
+            setEmotion(response.data.status);
+          }
+        } catch (error) {
+          setEmotion("Error detecting face");
         }
-      } catch (error) {
-        setEmotion("Error detecting face");
-      }
-    };
+      };
 
-    fetchEmotion(); // Run immediately on mount
-    const interval = setInterval(fetchEmotion, 60000); // Run every 60 seconds (1 minute)
-    
-    return () => clearInterval(interval);
-  }, []);
+      fetchEmotion(); // Initial fetch
+      const interval = setInterval(fetchEmotion, 3000); // Update every 3 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [hasPermission]);
 
   const handleStopInterview = async () => {
     try {
-      // Stop the camera
       await fetch('http://localhost:5000/stop_camera', {
         method: 'POST'
       });
-      // Then call the parent's stop handler
-      onStopVideo();
+      navigate('/');
     } catch (error) {
       console.error('Error stopping camera:', error);
-      onStopVideo(); // Still stop the interview even if there's an error
+      navigate('/');
     }
   };
+
+  if (hasPermission === null) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '80vh' 
+      }}>
+        <h2>Checking camera permissions...</h2>
+      </div>
+    );
+  }
+
+  if (hasPermission === false) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '80vh' 
+      }}>
+        <h2>Camera Permission Required</h2>
+        <p style={{ margin: '20px 0' }}>Please enable camera access in your browser to use the Interview Simulator.</p>
+        <div style={{ display: 'flex', gap: '20px' }}>
+          <button
+            onClick={checkCameraPermission}
+            style={{
+              padding: '12px 24px',
+              fontSize: '16px',
+              backgroundColor: '#4CAF50',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+            }}
+          >
+            Check Again
+          </button>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              padding: '12px 24px',
+              fontSize: '16px',
+              backgroundColor: '#f44336',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+            }}
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

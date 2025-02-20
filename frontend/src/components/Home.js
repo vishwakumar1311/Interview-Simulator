@@ -12,7 +12,7 @@ function Home() {
       justifyContent: 'center', 
       minHeight: '80vh' 
     }}>
-      <h1>Welcome to Interview Simulator</h1>
+      <h1>Interview Kit</h1>
       <p>Choose an option to begin your interview preparation</p>
       
       <div style={{

@@ -5,6 +5,7 @@ from flask_cors import CORS
 from deepface import DeepFace
 import sys
 import os
+import atexit
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -19,10 +20,14 @@ cap = None
 
 def init_camera():
     global cap
-    if cap is not None:
-        cap.release()
-    cap = cv2.VideoCapture(0)
-    return cap.isOpened()
+    try:
+        if cap is not None:
+            cap.release()
+        cap = cv2.VideoCapture(0)
+        return cap.isOpened()
+    except Exception as e:
+        print(f"Error initializing camera: {str(e)}")
+        return False
 
 def analyze_face(frame):
     try:
@@ -120,15 +125,23 @@ def stop_camera():
 
 def cleanup():
     global cap
-    if cap is not None:
-        cap.release()
-    cv2.destroyAllWindows()
+    try:
+        if cap is not None:
+            cap.release()
+            cap = None
+        cv2.destroyAllWindows()
+        sys.stdout = old_stdout
+    except Exception as e:
+        print(f"Error during cleanup: {str(e)}")
+
+# Register cleanup function to run on exit
+atexit.register(cleanup)
 
 if __name__ == "__main__":
     try:
         init_camera()
-        app.run(debug=True)
+        app.run(debug=False, threaded=True)  # Changed debug to False and added threaded=True
+    except Exception as e:
+        print(f"Error running server: {str(e)}")
     finally:
         cleanup()
-        # Restore stdout
-        sys.stdout = old_stdout

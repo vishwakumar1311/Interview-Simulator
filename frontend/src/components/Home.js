@@ -1,8 +1,35 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 function Home() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Stop camera when arriving at home page
+    fetch('http://localhost:5000/stop_camera', {
+      method: 'POST'
+    }).catch(error => {
+      console.error('Error stopping camera:', error);
+    });
+  }, []);
+
+  const handleInterviewClick = async () => {
+    try {
+      // First stop any existing camera/recording
+      await fetch('http://localhost:5000/stop_camera', {
+        method: 'POST'
+      });
+      
+      // Navigate and force reload
+      navigate('/interview');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error resetting camera:', error);
+      // Navigate and force reload even on error
+      navigate('/interview');
+      window.location.reload();
+    }
+  };
 
   return (
     <div style={{ 
@@ -38,7 +65,7 @@ function Home() {
         </button>
 
         <button
-          onClick={() => navigate('/interview')}
+          onClick={handleInterviewClick}
           style={{
             padding: '12px 24px',
             fontSize: '18px',

@@ -8,6 +8,7 @@ import os
 import atexit
 from collections import defaultdict
 import time
+from datetime import datetime
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -24,6 +25,15 @@ cap = None
 emotion_counts = defaultdict(int)
 total_emotions = 0
 
+# Add these global variables at the top with other globals
+video_writer = None
+recording = False
+output_folder = "recorded_videos"
+
+# Create output folder if it doesn't exist
+if not os.path.exists(output_folder):
+    os.makedirs(output_folder)
+
 def init_camera():
     global cap
     try:
@@ -37,15 +47,21 @@ def init_camera():
         time.sleep(0.5)
         
         cap = cv2.VideoCapture(0)
+        
+        # Try reopening if first attempt fails
         if not cap.isOpened():
-            cap.open(0)  # Try explicitly opening the camera
+            cap.release()
+            time.sleep(1)  # Wait a bit longer
+            cap = cv2.VideoCapture(0)
         
-        # Set camera properties for better performance
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        cap.set(cv2.CAP_PROP_FPS, 30)
-        
-        return cap.isOpened()
+        if cap.isOpened():
+            # Set camera properties for better performance
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+            return True
+            
+        return False
     except Exception as e:
         print(f"Error initializing camera: {str(e)}")
         return False
@@ -63,32 +79,38 @@ def analyze_face(frame):
         return None
 
 def generate_frames():
-    global cap
+    global cap, video_writer, recording
     if not init_camera():
+        print("Failed to initialize camera in generate_frames")
         return
 
     try:
         while True:
             if cap is None or not cap.isOpened():
+                print("Camera not available")
                 break
                 
             success, frame = cap.read()
             if not success:
+                print("Failed to read frame")
                 break
 
-            # Convert frame to RGB
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
             try:
-                # Face detection and emotion analysis (no visual indicators)
-                results = face_detection.process(rgb_frame)
+                # Face detection and emotion analysis
+                results = face_detection.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 if results.detections:
-                    for detection in results.detections:
-                        # Only analyze emotion, don't draw rectangle or text
-                        analyze_face(frame)
+                    emotion = analyze_face(frame)
+                    if emotion:
+                        print(f"Detected emotion: {emotion}")
 
-                # Convert back to BGR for encoding
-                frame = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
+                # Save frame if recording
+                if recording and video_writer is not None:
+                    try:
+                        video_writer.write(frame)
+                    except Exception as e:
+                        print(f"Error writing frame: {str(e)}")
+
+                # Convert for streaming
                 _, buffer = cv2.imencode('.jpg', frame)
                 frame_bytes = buffer.tobytes()
 
@@ -99,12 +121,22 @@ def generate_frames():
                 print(f"Error processing frame: {str(e)}")
                 break
 
+    except Exception as e:
+        print(f"Error in generate_frames: {str(e)}")
     finally:
-        if cap is not None:
-            cap.release()
+        print("Exiting generate_frames")
 
 @app.route('/video_feed')
 def video_feed():
+    global cap, video_writer, recording
+    # Reset everything when starting a new video feed
+    if cap is not None:
+        cap.release()
+        cap = None
+    if video_writer is not None:
+        video_writer.release()
+        video_writer = None
+    recording = False
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/analyze_emotion', methods=['GET'])
@@ -158,14 +190,75 @@ def get_emotion_summary():
         "total_frames": total_emotions
     })
 
+@app.route('/start_recording', methods=['POST'])
+def start_recording():
+    global emotion_counts, total_emotions, cap, video_writer, recording
+    try:
+        print("Starting recording process...")
+        
+        # Reset the emotion counters
+        emotion_counts = defaultdict(int)
+        total_emotions = 0
+        
+        # Initialize the camera if needed
+        if cap is None or not cap.isOpened():
+            print("Initializing camera...")
+            success = init_camera()
+            if not success:
+                print("Failed to initialize camera")
+                return jsonify({"error": "Camera initialization failed"}), 500
+        
+        print("Camera status:", cap.isOpened())
+        
+        # Setup video writer
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = os.path.join(output_folder, f"interview_{timestamp}.mp4")
+            print(f"Creating video writer at: {output_path}")
+            
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')  # Changed from mp4v to XVID
+            frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            
+            print(f"Frame dimensions: {frame_width}x{frame_height}")
+            
+            video_writer = cv2.VideoWriter(output_path, fourcc, 20.0, (frame_width, frame_height))
+            if not video_writer.isOpened():
+                print("Failed to create video writer")
+                return jsonify({"error": "Failed to create video writer"}), 500
+                
+            recording = True
+            print("Recording started successfully")
+            
+        except Exception as e:
+            print(f"Error setting up video writer: {str(e)}")
+            return jsonify({"error": f"Video writer setup failed: {str(e)}"}), 500
+        
+        return jsonify({"status": "Recording started"})
+    except Exception as e:
+        print(f"Error in start_recording: {str(e)}")
+        return jsonify({"error": f"Failed to start recording: {str(e)}"}), 500
+
 @app.route('/stop_camera', methods=['POST'])
 def stop_camera():
-    global cap, emotion_counts, total_emotions
+    global cap, emotion_counts, total_emotions, video_writer, recording
     try:
+        print("Stopping recording...")
+        print(f"Current emotion counts: {emotion_counts}")
+        print(f"Total emotions: {total_emotions}")
+        
+        recording = False
+        
+        if video_writer is not None:
+            video_writer.release()
+            video_writer = None
+            print("Video writer released")
+            
         if cap is not None:
             cap.release()
             cap = None
             cv2.destroyAllWindows()
+            print("Camera released")
         
         # Get the summary before resetting
         summary = {
@@ -177,45 +270,35 @@ def stop_camera():
             "total_frames": total_emotions
         }
         
+        print(f"Generated summary: {summary}")
+        
         # Reset the counters
         emotion_counts = defaultdict(int)
         total_emotions = 0
         
         return jsonify({
-            "status": "Camera stopped successfully",
+            "status": "Recording stopped successfully",
             "emotion_summary": summary
         })
     except Exception as e:
+        print(f"Error in stop_camera: {str(e)}")
+        # Ensure cleanup even on error
+        recording = False
+        if video_writer is not None:
+            video_writer.release()
+            video_writer = None
         if cap is not None:
             cap.release()
             cap = None
-            cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
         return jsonify({"error": f"Failed to stop camera: {str(e)}"}), 500
 
-@app.route('/start_recording', methods=['POST'])
-def start_recording():
-    global emotion_counts, total_emotions, cap
-    try:
-        # Make sure any existing camera is stopped
-        if cap is not None:
-            cap.release()
-            cap = None
-            cv2.destroyAllWindows()
-        
-        # Reset the emotion counters when starting a new recording
-        emotion_counts = defaultdict(int)
-        total_emotions = 0
-        
-        # Initialize the camera
-        init_camera()
-        
-        return jsonify({"status": "Recording started"})
-    except Exception as e:
-        return jsonify({"error": f"Failed to start recording: {str(e)}"}), 500
-
 def cleanup():
-    global cap, emotion_counts, total_emotions
+    global cap, emotion_counts, total_emotions, video_writer, recording
     try:
+        recording = False
+        if video_writer is not None:
+            video_writer.release()
         if cap is not None:
             cap.release()
             cap = None

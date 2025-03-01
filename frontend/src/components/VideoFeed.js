@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 function VideoFeed() {
-  const [emotion, setEmotion] = useState("Analyzing...");
   const [emotionSummary, setEmotionSummary] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -140,6 +138,35 @@ function VideoFeed() {
       </div>
     );
   };
+
+  // Add cleanup effect when component unmounts
+  useEffect(() => {
+    return () => {
+      // Cleanup when navigating away
+      fetch('http://localhost:5000/stop_camera', {
+        method: 'POST'
+      }).catch(error => {
+        console.error('Error stopping camera:', error);
+      });
+    };
+  }, []);
+
+  // Add handler for browser back button
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      fetch('http://localhost:5000/stop_camera', {
+        method: 'POST'
+      }).catch(error => {
+        console.error('Error stopping camera:', error);
+      });
+    };
+
+    window.addEventListener('popstate', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('popstate', handleBeforeUnload);
+    };
+  }, []);
 
   if (hasPermission === null) {
     return (

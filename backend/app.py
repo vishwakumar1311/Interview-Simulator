@@ -6,6 +6,8 @@ from deepface import DeepFace
 import sys
 import os
 import atexit
+from collections import defaultdict
+import time
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -18,12 +20,31 @@ mp_face_detection = mp.solutions.face_detection
 face_detection = mp_face_detection.FaceDetection(min_detection_confidence=0.5)
 cap = None
 
+# Add global variables for emotion tracking
+emotion_counts = defaultdict(int)
+total_emotions = 0
+
 def init_camera():
     global cap
     try:
+        # Make sure to properly release any existing camera
         if cap is not None:
             cap.release()
+            cv2.destroyAllWindows()
+            cap = None
+        
+        # Add a small delay before opening new capture
+        time.sleep(0.5)
+        
         cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            cap.open(0)  # Try explicitly opening the camera
+        
+        # Set camera properties for better performance
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        
         return cap.isOpened()
     except Exception as e:
         print(f"Error initializing camera: {str(e)}")
@@ -32,7 +53,12 @@ def init_camera():
 def analyze_face(frame):
     try:
         result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False, silent=True)
-        return result[0]['dominant_emotion']
+        # Track the emotion
+        global emotion_counts, total_emotions
+        emotion = result[0]['dominant_emotion']
+        emotion_counts[emotion] += 1
+        total_emotions += 1
+        return emotion
     except:
         return None
 
@@ -43,6 +69,9 @@ def generate_frames():
 
     try:
         while True:
+            if cap is None or not cap.isOpened():
+                break
+                
             success, frame = cap.read()
             if not success:
                 break
@@ -51,24 +80,15 @@ def generate_frames():
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
             try:
-                # Face detection
+                # Face detection and emotion analysis (no visual indicators)
                 results = face_detection.process(rgb_frame)
-
                 if results.detections:
                     for detection in results.detections:
-                        bboxC = detection.location_data.relative_bounding_box
-                        ih, iw, _ = frame.shape
-                        x, y, w, h = int(bboxC.xmin * iw), int(bboxC.ymin * ih), \
-                                    int(bboxC.width * iw), int(bboxC.height * ih)
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                        
-                        # Analyze emotion for detected face
-                        emotion = analyze_face(frame)
-                        if emotion:
-                            cv2.putText(frame, emotion, (x, y-10), 
-                                      cv2.FONT_HERSHEY_SIMPLEX, 0.9, 
-                                      (36,255,12), 2)
+                        # Only analyze emotion, don't draw rectangle or text
+                        analyze_face(frame)
 
+                # Convert back to BGR for encoding
+                frame = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2BGR)
                 _, buffer = cv2.imencode('.jpg', frame)
                 frame_bytes = buffer.tobytes()
 
@@ -80,7 +100,8 @@ def generate_frames():
                 break
 
     finally:
-        cap.release()
+        if cap is not None:
+            cap.release()
 
 @app.route('/video_feed')
 def video_feed():
@@ -112,25 +133,97 @@ def reset_camera():
         return jsonify({"status": "Camera reset successful"})
     return jsonify({"error": "Failed to reset camera"}), 500
 
+@app.route('/get_emotion_summary')
+def get_emotion_summary():
+    global emotion_counts, total_emotions
+    if total_emotions == 0:
+        return jsonify({
+            "error": "No emotions recorded",
+            "summary": {},
+            "dominant_emotion": None
+        })
+    
+    # Calculate percentages
+    emotion_percentages = {
+        emotion: (count / total_emotions) * 100 
+        for emotion, count in emotion_counts.items()
+    }
+    
+    # Find dominant emotion
+    dominant_emotion = max(emotion_counts.items(), key=lambda x: x[1])[0]
+    
+    return jsonify({
+        "summary": emotion_percentages,
+        "dominant_emotion": dominant_emotion,
+        "total_frames": total_emotions
+    })
+
 @app.route('/stop_camera', methods=['POST'])
 def stop_camera():
-    global cap
+    global cap, emotion_counts, total_emotions
     try:
         if cap is not None:
             cap.release()
             cap = None
-        return jsonify({"status": "Camera stopped successfully"})
+            cv2.destroyAllWindows()
+        
+        # Get the summary before resetting
+        summary = {
+            "summary": {
+                emotion: (count / total_emotions) * 100 
+                for emotion, count in emotion_counts.items()
+            } if total_emotions > 0 else {},
+            "dominant_emotion": max(emotion_counts.items(), key=lambda x: x[1])[0] if emotion_counts else None,
+            "total_frames": total_emotions
+        }
+        
+        # Reset the counters
+        emotion_counts = defaultdict(int)
+        total_emotions = 0
+        
+        return jsonify({
+            "status": "Camera stopped successfully",
+            "emotion_summary": summary
+        })
     except Exception as e:
+        if cap is not None:
+            cap.release()
+            cap = None
+            cv2.destroyAllWindows()
         return jsonify({"error": f"Failed to stop camera: {str(e)}"}), 500
 
+@app.route('/start_recording', methods=['POST'])
+def start_recording():
+    global emotion_counts, total_emotions, cap
+    try:
+        # Make sure any existing camera is stopped
+        if cap is not None:
+            cap.release()
+            cap = None
+            cv2.destroyAllWindows()
+        
+        # Reset the emotion counters when starting a new recording
+        emotion_counts = defaultdict(int)
+        total_emotions = 0
+        
+        # Initialize the camera
+        init_camera()
+        
+        return jsonify({"status": "Recording started"})
+    except Exception as e:
+        return jsonify({"error": f"Failed to start recording: {str(e)}"}), 500
+
 def cleanup():
-    global cap
+    global cap, emotion_counts, total_emotions
     try:
         if cap is not None:
             cap.release()
             cap = None
         cv2.destroyAllWindows()
         sys.stdout = old_stdout
+        # Reset emotion tracking
+        emotion_counts = defaultdict(int)
+        total_emotions = 0
     except Exception as e:
         print(f"Error during cleanup: {str(e)}")
 

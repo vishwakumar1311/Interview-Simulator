@@ -1,5 +1,57 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import bgImage from './ResumeMatcher-BG.jpg';
+
+// Add global style to ensure the background covers everything
+const globalStyle = `
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+  body {
+    margin: 0;
+    padding: 0;
+    background-image: url(${bgImage});
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    min-height: 100vh;
+    color: #000;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Playfair Display', serif;
+    letter-spacing: -0.5px;
+  }
+
+  input, textarea {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 0, 0, 0.2) !important;
+    color: #000 !important;
+    font-family: 'Poppins', sans-serif;
+    letter-spacing: 0.2px;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: rgba(0, 0, 0, 0.6);
+    font-style: italic;
+    font-weight: 300;
+  }
+
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+  }
+
+  button {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+`;
 
 function AIResumeMatcher() {
   const navigate = useNavigate();
@@ -84,12 +136,24 @@ function AIResumeMatcher() {
 
   const ResultSection = ({ title, children }) => (
     <div style={{
-      backgroundColor: '#f5f5f5',
-      padding: '15px',
-      borderRadius: '5px',
-      marginBottom: '15px'
+      backgroundColor: 'rgba(255, 255, 255, 0.85)',
+      backdropFilter: 'blur(10px)',
+      padding: '20px',
+      borderRadius: '12px',
+      marginBottom: '20px',
+      border: '1px solid rgba(0, 0, 0, 0.1)',
+      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
     }}>
-      <h3 style={{ marginTop: 0, marginBottom: '10px' }}>{title}</h3>
+      <h3 style={{ 
+        marginTop: 0, 
+        marginBottom: '15px', 
+        color: '#000',
+        fontSize: '1.5rem',
+        fontWeight: '600',
+        letterSpacing: '-0.5px',
+        borderBottom: '2px solid rgba(0, 0, 0, 0.1)',
+        paddingBottom: '8px'
+      }}>{title}</h3>
       {children}
     </div>
   );
@@ -102,180 +166,239 @@ function AIResumeMatcher() {
       marginBottom: '10px'
     }}>
       <div style={{
-        width: '60px',
-        height: '60px',
+        width: '70px',
+        height: '70px',
         borderRadius: '50%',
         border: '3px solid',
         borderColor: score >= 80 ? '#4CAF50' : score >= 60 ? '#FFA726' : '#F44336',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '20px',
-        fontWeight: 'bold'
+        fontSize: '24px',
+        fontWeight: 'bold',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        color: '#000',
+        backdropFilter: 'blur(10px)'
       }}>
         {score}%
       </div>
-      <span style={{ fontSize: '16px', fontWeight: 'bold' }}>{label}</span>
+      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#000' }}>{label}</span>
     </div>
   );
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      minHeight: '80vh',
-      padding: '20px'
-    }}>
-      <h1 style={{ marginBottom: '30px' }}>AI Resume Matcher</h1>
-      
-      <div style={{
-        width: '100%',
-        maxWidth: '800px',
+    <>
+      <style>{globalStyle}</style>
+      <div style={{ 
         display: 'flex',
-        flexDirection: 'column',
-        gap: '20px'
+        minHeight: '100%',
+        justifyContent: 'flex-end',
+        padding: '2rem'
       }}>
-        <form onSubmit={handleSubmit} style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '20px'
+        <div style={{
+          width: '50%',
+          minWidth: '600px',
+          maxWidth: '800px',
+          minHeight: '100%',
         }}>
-          <div style={{
+          <h1 style={{ 
+            marginBottom: '40px',
+            color: '#000',
+            fontSize: '3.5rem',
+            textAlign: 'center',
+            textShadow: '2px 2px 4px rgba(255, 255, 255, 0.5)',
+            fontWeight: '700',
+            letterSpacing: '-1px',
+            lineHeight: '1.2'
+          }}>AI Resume Matcher</h1>
+          
+          <form onSubmit={handleSubmit} style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px'
+            gap: '25px',
+            marginBottom: '40px'
           }}>
-            <label htmlFor="resume" style={{ fontWeight: 'bold' }}>Upload Resume (PDF)</label>
-            <input
-              type="file"
-              id="resume"
-              accept=".pdf"
-              onChange={handleResumeUpload}
-              style={{
-                padding: '10px',
-                border: '1px solid #ccc',
-                borderRadius: '5px'
-              }}
-            />
-            {resume && <p style={{ color: 'green' }}>Resume uploaded: {resume.name}</p>}
-          </div>
-
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '10px'
-          }}>
-            <label htmlFor="jobDescription" style={{ fontWeight: 'bold' }}>Job Description</label>
-            <textarea
-              id="jobDescription"
-              value={jobDescription}
-              onChange={handleJobDescriptionChange}
-              placeholder="Paste the job description here..."
-              style={{
-                padding: '10px',
-                border: '1px solid #ccc',
-                borderRadius: '5px',
-                minHeight: '200px',
-                resize: 'vertical',
-                fontFamily: 'inherit',
-                fontSize: '14px',
-                lineHeight: '1.5'
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-            <button
-              type="submit"
-              disabled={isAnalyzing}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                backgroundColor: isAnalyzing ? '#cccccc' : '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: isAnalyzing ? 'not-allowed' : 'pointer',
-                flex: 1,
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <label htmlFor="resume" style={{ 
+                fontWeight: '600',
+                color: '#000',
+                fontSize: '1.25rem',
+                textShadow: '1px 1px 2px rgba(255, 255, 255, 0.5)',
+                letterSpacing: '0.2px',
+                textTransform: 'uppercase'
+              }}>Upload Resume (PDF)</label>
+              <input
+                type="file"
+                id="resume"
+                accept=".pdf"
+                onChange={handleResumeUpload}
+                style={{
+                  padding: '14px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              />
+              {resume && <p style={{ 
+                color: '#4CAF50',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                gap: '10px'
-              }}
-            >
-              {isAnalyzing ? 'Analyzing...' : 'Analyze Resume Match'}
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                backgroundColor: '#2196F3',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-              }}
-            >
-              Back to Home
-            </button>
-          </div>
-        </form>
-
-        {analysisResults && (
-          <div style={{
-            marginTop: '30px',
-            padding: '20px',
-            border: '1px solid #ccc',
-            borderRadius: '5px',
-            backgroundColor: 'white'
-          }}>
-            <h2 style={{ marginTop: 0, marginBottom: '20px' }}>Analysis Results</h2>
-            
-            <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-              <ScoreDisplay score={analysisResults.atsScore} label="ATS Score" />
-              <ScoreDisplay score={analysisResults.similarityScore} label="Similarity Score" />
+                gap: '8px',
+                margin: '8px 0',
+                textShadow: '1px 1px 2px rgba(255, 255, 255, 0.5)',
+                fontSize: '0.95rem',
+                fontWeight: '500',
+                letterSpacing: '0.2px'
+              }}>
+                <span>✓</span>
+                <span>Resume uploaded: {resume.name}</span>
+              </p>}
             </div>
 
-            <ResultSection title="Keyword Analysis">
-              <p><strong>Match Rate:</strong> {analysisResults.breakdown.keywordMatch.score}%</p>
-              <p><strong>Matched Keywords:</strong> {analysisResults.breakdown.keywordMatch.matched.join(', ')}</p>
-              <p><strong>Missing Keywords:</strong> {analysisResults.breakdown.keywordMatch.missing.join(', ')}</p>
-            </ResultSection>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <label htmlFor="jobDescription" style={{ 
+                fontWeight: '600',
+                color: '#000',
+                fontSize: '1.25rem',
+                textShadow: '1px 1px 2px rgba(255, 255, 255, 0.5)',
+                letterSpacing: '0.2px',
+                textTransform: 'uppercase'
+              }}>Job Description</label>
+              <textarea
+                id="jobDescription"
+                value={jobDescription}
+                onChange={handleJobDescriptionChange}
+                placeholder="Paste the job description here..."
+                style={{
+                  padding: '16px',
+                  borderRadius: '10px',
+                  minHeight: '200px',
+                  resize: 'vertical',
+                  fontSize: '1rem',
+                  lineHeight: '1.6',
+                  letterSpacing: '0.2px'
+                }}
+              />
+            </div>
 
-            <ResultSection title="Skills Alignment">
-              <p><strong>Match Rate:</strong> {analysisResults.breakdown.skillsAlignment.score}%</p>
-              <p><strong>Matched Skills:</strong> {analysisResults.breakdown.skillsAlignment.matched.join(', ')}</p>
-              <p><strong>Missing Skills:</strong> {analysisResults.breakdown.skillsAlignment.missing.join(', ')}</p>
-            </ResultSection>
+            <div style={{ 
+              display: 'flex', 
+              gap: '15px', 
+              marginTop: '25px'
+            }}>
+              <button
+                type="submit"
+                disabled={isAnalyzing}
+                style={{
+                  padding: '16px 32px',
+                  fontSize: '1rem',
+                  backgroundColor: isAnalyzing ? 'rgba(204, 204, 204, 0.9)' : 'rgba(76, 175, 80, 0.9)',
+                  color: '#000',
+                  border: '1px solid rgba(0, 0, 0, 0.2)',
+                  borderRadius: '10px',
+                  cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  transition: 'all 0.3s ease',
+                  backdropFilter: 'blur(10px)',
+                  fontWeight: '600',
+                  letterSpacing: '1px',
+                  textTransform: 'uppercase'
+                }}
+              >
+                {isAnalyzing ? 'Analyzing...' : 'Analyze Resume Match'}
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => navigate('/')}
+                style={{
+                  padding: '16px 32px',
+                  fontSize: '1rem',
+                  backgroundColor: 'rgba(33, 150, 243, 0.9)',
+                  color: '#000',
+                  border: '1px solid rgba(0, 0, 0, 0.2)',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease',
+                  backdropFilter: 'blur(10px)',
+                  fontWeight: '600',
+                  letterSpacing: '1px',
+                  textTransform: 'uppercase'
+                }}
+              >
+                Back to Home
+              </button>
+            </div>
+          </form>
 
-            <ResultSection title="Experience & Education">
-              <p><strong>Experience Relevance:</strong> {analysisResults.breakdown.experienceRelevance.score}%</p>
-              <p><strong>Strengths:</strong> {analysisResults.breakdown.experienceRelevance.strengths.join(', ')}</p>
-              <p><strong>Gaps:</strong> {analysisResults.breakdown.experienceRelevance.gaps.join(', ')}</p>
-              <p><strong>Education Match:</strong> {analysisResults.breakdown.educationMatch.score}%</p>
-            </ResultSection>
+          {analysisResults && (
+            <div style={{
+              marginBottom: '2rem'
+            }}>
+              <h2 style={{ 
+                marginTop: 0, 
+                marginBottom: '30px',
+                color: '#000',
+                fontSize: '2.5rem',
+                textShadow: '2px 2px 4px rgba(255, 255, 255, 0.5)',
+                fontWeight: '600',
+                letterSpacing: '-0.5px',
+                textAlign: 'center'
+              }}>Analysis Results</h2>
+              
+              <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+                <ScoreDisplay score={analysisResults.atsScore} label="ATS Score" />
+                <ScoreDisplay score={analysisResults.similarityScore} label="Similarity Score" />
+              </div>
 
-            <ResultSection title="Job Title Relevance">
-              <p><strong>Match Level:</strong> {analysisResults.breakdown.jobTitleRelevance.matchLevel}</p>
-              <p><strong>Suggested Titles:</strong> {analysisResults.breakdown.jobTitleRelevance.suggestedTitles.join(', ')}</p>
-            </ResultSection>
+              <ResultSection title="Keyword Analysis">
+                <p><strong style={{color: '#000'}}>Match Rate:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.keywordMatch.score}%</span></p>
+                <p><strong style={{color: '#000'}}>Matched Keywords:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.keywordMatch.matched.join(', ')}</span></p>
+                <p><strong style={{color: '#000'}}>Missing Keywords:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.keywordMatch.missing.join(', ')}</span></p>
+              </ResultSection>
 
-            <ResultSection title="Suggested Improvements">
-              <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                {analysisResults.improvements.map((improvement, index) => (
-                  <li key={index}>{improvement}</li>
-                ))}
-              </ul>
-            </ResultSection>
-          </div>
-        )}
+              <ResultSection title="Skills Alignment">
+                <p><strong style={{color: '#000'}}>Match Rate:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.skillsAlignment.score}%</span></p>
+                <p><strong style={{color: '#000'}}>Matched Skills:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.skillsAlignment.matched.join(', ')}</span></p>
+                <p><strong style={{color: '#000'}}>Missing Skills:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.skillsAlignment.missing.join(', ')}</span></p>
+              </ResultSection>
+
+              <ResultSection title="Experience & Education">
+                <p><strong style={{color: '#000'}}>Experience Relevance:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.experienceRelevance.score}%</span></p>
+                <p><strong style={{color: '#000'}}>Strengths:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.experienceRelevance.strengths.join(', ')}</span></p>
+                <p><strong style={{color: '#000'}}>Gaps:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.experienceRelevance.gaps.join(', ')}</span></p>
+                <p><strong style={{color: '#000'}}>Education Match:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.educationMatch.score}%</span></p>
+              </ResultSection>
+
+              <ResultSection title="Job Title Relevance">
+                <p><strong style={{color: '#000'}}>Match Level:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.jobTitleRelevance.matchLevel}</span></p>
+                <p><strong style={{color: '#000'}}>Suggested Titles:</strong> <span style={{color: '#000'}}>{analysisResults.breakdown.jobTitleRelevance.suggestedTitles.join(', ')}</span></p>
+              </ResultSection>
+
+              <ResultSection title="Suggested Improvements">
+                <ul style={{ margin: 0, paddingLeft: '20px', color: '#000' }}>
+                  {analysisResults.improvements.map((improvement, index) => (
+                    <li key={index} style={{ marginBottom: '8px' }}>{improvement}</li>
+                  ))}
+                </ul>
+              </ResultSection>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

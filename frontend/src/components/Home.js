@@ -21,12 +21,12 @@ function Home() {
       });
       
       // Navigate and force reload
-      navigate('/interview');
+      navigate('/setup');
       window.location.reload();
     } catch (error) {
       console.error('Error resetting camera:', error);
       // Navigate and force reload even on error
-      navigate('/interview');
+      navigate('/setup');
       window.location.reload();
     }
   };
@@ -96,14 +96,6 @@ function Home() {
           Online Assessment
         </button>
       </div>
-
-      <p style={{ 
-        marginTop: '30px', 
-        color: '#666',
-        fontSize: '14px' 
-      }}>
-        Note: AI Resume Matcher and Online Assessment features are coming soon!
-      </p>
     </div>
   );
 }

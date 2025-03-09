@@ -1,14 +1,9 @@
-# Create README.md file
-echo "# Interview Simulator
-
-A real-time face detection application for interview simulations using Flask, React, and MediaPipe.
 
 ## Features
-- Real-time face detection using MediaPipe
+- Real-time Interview Simulation
 - Web-based interface with React
-- Camera feed display
-- Face status monitoring
-- Start/Stop interview functionality
+- Resume Screener
+- Curated Resources based on User Performance
 
 ## Prerequisites
 - Python 3.8+

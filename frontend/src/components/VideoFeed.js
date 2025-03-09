@@ -16,16 +16,41 @@ const globalStyle = `
   }
 `;
 
+const INTERVIEW_QUESTIONS = [
+  "Tell me about a time when you faced a challenging situation at work or school. How did you handle it?",
+  "Describe a project you're particularly proud of. What was your role and what did you achieve?",
+  "Give me an example of a time when you had to work with a difficult team member. How did you manage the situation?",
+  "Tell me about a time when you had to meet a tight deadline. How did you ensure the task was completed on time?",
+  "Describe a situation where you had to learn something new quickly. What approach did you take?",
+  "Tell me about a time when you received negative feedback. How did you respond?",
+  "Give me an example of a time when you showed leadership skills.",
+  "Describe a situation where you had to resolve a conflict. What steps did you take?",
+  "Tell me about a time when you had to adapt to a significant change. How did you handle it?",
+  "Share an example of a time when you failed at something. What did you learn from it?"
+];
+
 function VideoFeed() {
   const [emotionSummary, setEmotionSummary] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [isQuestionVisible, setIsQuestionVisible] = useState(false);
   const videoRef = useRef();
   const navigate = useNavigate();
+  const speechSynthesis = window.speechSynthesis;
+  const [questions, setQuestions] = useState([]);
 
   useEffect(() => {
     checkCameraPermission();
+  }, []);
+
+  useEffect(() => {
+    // Load questions from localStorage
+    const savedQuestions = localStorage.getItem('interviewQuestions');
+    if (savedQuestions) {
+      setQuestions(JSON.parse(savedQuestions));
+    }
   }, []);
 
   const checkCameraPermission = async () => {
@@ -59,10 +84,33 @@ function VideoFeed() {
     }
   }, [hasPermission]);
 
+  // Function to speak the question
+  const speakQuestion = (question) => {
+    const utterance = new SpeechSynthesisUtterance(question);
+    utterance.rate = 0.9; // Slightly slower rate
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    speechSynthesis.speak(utterance);
+  };
+
+  // Function to handle next question
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < INTERVIEW_QUESTIONS.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+      speakQuestion(INTERVIEW_QUESTIONS[currentQuestionIndex + 1]);
+    }
+  };
+
+  // Function to start interview
   const handleStartInterview = async () => {
     try {
       await fetch('http://localhost:5000/start_recording', { method: 'POST' });
       setIsRecording(true);
+      setIsQuestionVisible(true);
+      // Speak the first question after a short delay
+      setTimeout(() => {
+        speakQuestion(INTERVIEW_QUESTIONS[0]);
+      }, 1000);
     } catch (error) {
       console.error('Error starting interview:', error);
     }
@@ -155,6 +203,7 @@ function VideoFeed() {
   useEffect(() => {
     return () => {
       // Cleanup when navigating away
+      speechSynthesis.cancel();
       fetch('http://localhost:5000/stop_camera', {
         method: 'POST'
       }).catch(error => {
@@ -247,6 +296,7 @@ function VideoFeed() {
   }
 
   return (
+<<<<<<< HEAD
     <>
       <style>{globalStyle}</style>
       <div style={{ 
@@ -282,6 +332,89 @@ function VideoFeed() {
               </div>
             </div>
 
+=======
+    <div style={{ 
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      minHeight: '100vh',
+      padding: '20px'
+    }}>
+      <h1 style={{ marginBottom: '30px' }}>Interview Simulator</h1>
+      {!showSummary ? (
+        <div style={{ 
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width: '100%',
+          maxWidth: '800px'
+        }}>
+          <img
+            src="http://127.0.0.1:5000/video_feed"
+            alt="Candidate Face"
+            style={{ 
+              width: "600px", 
+              borderRadius: "10px", 
+              marginBottom: '30px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+            }}
+            ref={videoRef}
+          />
+          
+          {isQuestionVisible && (
+            <div style={{
+              width: '100%',
+              padding: '20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '10px',
+              marginBottom: '20px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}>
+              <h3 style={{ marginBottom: '10px', color: '#2c3e50' }}>
+                Question {currentQuestionIndex + 1} of {INTERVIEW_QUESTIONS.length}
+              </h3>
+              <p style={{ fontSize: '18px', color: '#34495e', marginBottom: '20px' }}>
+                {INTERVIEW_QUESTIONS[currentQuestionIndex]}
+              </p>
+              <button
+                onClick={handleNextQuestion}
+                disabled={currentQuestionIndex === INTERVIEW_QUESTIONS.length - 1}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '14px',
+                  backgroundColor: '#3498db',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  opacity: currentQuestionIndex === INTERVIEW_QUESTIONS.length - 1 ? 0.5 : 1
+                }}
+              >
+                Next Question
+              </button>
+            </div>
+          )}
+
+          {!isRecording ? (
+            <button
+              onClick={handleStartInterview}
+              style={{
+                padding: '12px 24px',
+                fontSize: '16px',
+                backgroundColor: '#4CAF50',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                transition: 'background-color 0.3s'
+              }}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#45a049'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}
+            >
+              Start Interview
+            </button>
+          ) : (
+>>>>>>> 109c80fcbb07f6be7c67214091a1154a5d1b1e13
             <div style={{
               flex: '1',
               minWidth: '300px',
@@ -290,6 +423,7 @@ function VideoFeed() {
               justifyContent: 'center',
               alignItems: 'center'
             }}>
+<<<<<<< HEAD
               {!isRecording ? (
                 <button
                   onClick={handleStartInterview}
@@ -329,6 +463,25 @@ function VideoFeed() {
                   </button>
                 </div>
               )}
+=======
+              <button
+                onClick={handleStopInterview}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  backgroundColor: '#f44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s'
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#d32f2f'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#f44336'}
+              >
+                End Interview
+              </button>
+>>>>>>> 109c80fcbb07f6be7c67214091a1154a5d1b1e13
             </div>
           </div>
         ) : (

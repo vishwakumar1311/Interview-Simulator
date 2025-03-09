@@ -43,12 +43,12 @@ function Home() {
       });
       
       // Navigate and force reload
-      navigate('/interview');
+      navigate('/setup');
       window.location.reload();
     } catch (error) {
       console.error('Error resetting camera:', error);
       // Navigate and force reload even on error
-      navigate('/interview');
+      navigate('/setup');
       window.location.reload();
     }
   };
@@ -293,6 +293,7 @@ function Home() {
       }}>
         <LoadingSpinner size="large" color="#3D3D3D" />
       </div>
+<<<<<<< HEAD
     );
   }
 
@@ -379,6 +380,9 @@ function Home() {
         <Footer />
       </div>
     </>
+=======
+    </div>
+>>>>>>> 109c80fcbb07f6be7c67214091a1154a5d1b1e13
   );
 }
 

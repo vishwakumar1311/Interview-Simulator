@@ -1,4 +1,4 @@
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 import cv2
 import mediapipe as mp
 from flask_cors import CORS
@@ -9,6 +9,7 @@ import atexit
 from collections import defaultdict
 import time
 from datetime import datetime
+import requests
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -312,6 +313,67 @@ def cleanup():
 
 # Register cleanup function to run on exit
 atexit.register(cleanup)
+
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+@app.route('/generate_questions', methods=['POST'])
+def generate_questions():
+    try:
+        data = request.get_json()
+        print("Received data:", data)  # Debug log
+
+        branch = data.get('branch')
+        role = data.get('role')
+        experience = data.get('experience')
+
+        if not all([branch, role, experience]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {OPENAI_API_KEY}"
+        }
+
+        payload = {
+            "model": "gpt-3.5-turbo",
+            "messages": [
+                {"role": "system", "content": "You are an expert technical interviewer."},
+                {"role": "user", "content": f"Generate 10 technical and behavioral interview questions for a {role} position with {experience} years of experience and background in {branch}."}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 200  # Limits response size
+        }
+
+        print("Sending request to OpenAI:", payload)  # Debug log
+        
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=payload
+        )
+
+        print("OpenAI response status:", response.status_code)  # Debug log
+        print("OpenAI response:", response.text)  # Debug log
+
+        if response.status_code == 200:
+            try:
+                result = response.json()
+                if 'choices' in result and result['choices']:
+                    content = result['choices'][0]['message']['content']
+                    questions = [q.strip() for q in content.split('\n') if q.strip()]
+                    return jsonify({"questions": questions})
+                else:
+                    return jsonify({"error": "Unexpected OpenAI response format"}), 500
+            except ValueError:
+                return jsonify({"error": "Invalid JSON response from OpenAI"}), 500
+        else:
+            error_message = f"OpenAI API error: {response.text}"
+            print(error_message)  # Debug log
+            return jsonify({"error": error_message}), response.status_code
+
+    except Exception as e:
+        print(f"Error generating questions: {str(e)}")  # Debug log
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     try:

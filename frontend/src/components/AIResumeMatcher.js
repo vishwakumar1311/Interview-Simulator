@@ -1,10 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import LoadingSpinner from './LoadingSpinner';
 import bgImage from './ResumeMatcher-BG.jpg';
 
 // Add global style to ensure the background covers everything
 const globalStyle = `
-  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Poppins:wght@300;400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
   body {
     margin: 0;
@@ -20,8 +21,8 @@ const globalStyle = `
   }
 
   h1, h2, h3 {
-    font-family: 'Playfair Display', serif;
-    letter-spacing: -0.5px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
   }
 
   input, textarea {
@@ -208,7 +209,7 @@ function AIResumeMatcher() {
             textAlign: 'center',
             textShadow: '2px 2px 4px rgba(255, 255, 255, 0.5)',
             fontWeight: '700',
-            letterSpacing: '-1px',
+            fontFamily: "'Poppins', sans-serif",
             lineHeight: '1.2'
           }}>AI Resume Matcher</h1>
           
@@ -317,7 +318,12 @@ function AIResumeMatcher() {
                   textTransform: 'uppercase'
                 }}
               >
-                {isAnalyzing ? 'Analyzing...' : 'Analyze Resume Match'}
+                {isAnalyzing ? (
+                  <>
+                    <LoadingSpinner size="small" color="#3D3D3D" />
+                    <span>Analyzing...</span>
+                  </>
+                ) : 'Analyze Resume Match'}
               </button>
               
               <button

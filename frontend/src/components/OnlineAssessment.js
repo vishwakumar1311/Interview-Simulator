@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import LoadingSpinner from './LoadingSpinner';
 
 function OnlineAssessment() {
   const navigate = useNavigate();
@@ -13,7 +14,16 @@ function OnlineAssessment() {
       minHeight: '80vh' 
     }}>
       <h1>Online Assessment</h1>
-      <p style={{ fontSize: '20px', margin: '20px 0' }}>Coming Soon!</p>
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        gap: '20px', 
+        margin: '30px 0' 
+      }}>
+        <LoadingSpinner size="large" color="#3D3D3D" />
+        <p style={{ fontSize: '20px' }}>Coming Soon!</p>
+      </div>
       <button
         onClick={() => navigate('/')}
         style={{
@@ -24,7 +34,10 @@ function OnlineAssessment() {
           border: 'none',
           borderRadius: '5px',
           cursor: 'pointer',
+          transition: 'background-color 0.3s'
         }}
+        onMouseOver={(e) => e.target.style.backgroundColor = '#F57C00'}
+        onMouseOut={(e) => e.target.style.backgroundColor = '#FF9800'}
       >
         Back to Home
       </button>

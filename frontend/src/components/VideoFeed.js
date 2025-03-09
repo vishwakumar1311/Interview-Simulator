@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import LoadingSpinner from './LoadingSpinner';
+import bgImage from './VideoFeed-BG.jpg';
+
+const globalStyle = `
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Poppins', sans-serif;
+    background-image: url(${bgImage});
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+  }
+`;
 
 function VideoFeed() {
   const [emotionSummary, setEmotionSummary] = useState(null);
@@ -76,65 +91,62 @@ function VideoFeed() {
 
     return (
       <div style={{
-        marginTop: '20px',
         padding: '20px',
-        border: '1px solid #ccc',
-        borderRadius: '5px',
-        backgroundColor: '#f9f9f9',
-        maxWidth: '800px',
+        maxWidth: '1200px',
         margin: '0 auto'
       }}>
-        <h2 style={{ color: '#2c3e50', marginBottom: '20px' }}>Interview Emotion Analysis Report</h2>
-        <div style={{ marginBottom: '30px', padding: '20px', backgroundColor: '#fff', borderRadius: '5px' }}>
-          <h3 style={{ color: '#34495e' }}>Primary Emotion: {emotionSummary.dominant_emotion}</h3>
-          <p>Total Duration: {(emotionSummary.total_frames * 3 / 60).toFixed(1)} minutes</p>
+        <div style={{
+          marginBottom: '40px'
+        }}>
+          <h2>Interview Emotion Analysis Report</h2>
+          <div>
+            <h3>Primary Emotion: {emotionSummary.dominant_emotion}</h3>
+            <p>Total Duration: {(emotionSummary.total_frames * 3 / 60).toFixed(1)} minutes</p>
+          </div>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#333',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Return to Home
+          </button>
         </div>
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '5px' }}>
-          <h3 style={{ color: '#34495e', marginBottom: '15px' }}>Emotional Distribution:</h3>
-          {Object.entries(emotionSummary.summary).map(([emotion, percentage]) => (
-            <div key={emotion} style={{ 
-              margin: '10px 0',
-              padding: '10px',
-              borderBottom: '1px solid #eee'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ textTransform: 'capitalize', color: '#2c3e50' }}>{emotion}</span>
-                <span style={{ fontWeight: 'bold', color: '#2980b9' }}>{percentage.toFixed(1)}%</span>
+
+        <div>
+          <h3>Emotional Distribution</h3>
+          <div>
+            {Object.entries(emotionSummary.summary).map(([emotion, percentage]) => (
+              <div key={emotion} style={{ marginBottom: '20px' }}>
+                <div style={{ 
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginBottom: '5px'
+                }}>
+                  <span style={{ textTransform: 'capitalize' }}>{emotion}</span>
+                  <span>{percentage.toFixed(1)}%</span>
+                </div>
+                <div style={{ 
+                  height: '20px',
+                  backgroundColor: '#eee',
+                  borderRadius: '4px'
+                }}>
+                  <div style={{
+                    width: `${percentage}%`,
+                    height: '100%',
+                    backgroundColor: '#4a90e2',
+                    borderRadius: '4px'
+                  }} />
+                </div>
               </div>
-              <div style={{ 
-                height: '6px',
-                backgroundColor: '#ecf0f1',
-                borderRadius: '3px',
-                marginTop: '5px'
-              }}>
-                <div style={{
-                  width: `${percentage}%`,
-                  height: '100%',
-                  backgroundColor: '#3498db',
-                  borderRadius: '3px'
-                }} />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-        <button
-          onClick={() => navigate('/')}
-          style={{
-            padding: '12px 24px',
-            fontSize: '16px',
-            backgroundColor: '#2ecc71',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            marginTop: '30px',
-            transition: 'background-color 0.3s'
-          }}
-          onMouseOver={(e) => e.target.style.backgroundColor = '#27ae60'}
-          onMouseOut={(e) => e.target.style.backgroundColor = '#2ecc71'}
-        >
-          Return to Home
-        </button>
       </div>
     );
   };
@@ -171,13 +183,24 @@ function VideoFeed() {
   if (hasPermission === null) {
     return (
       <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '80vh' 
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: '100vh',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0
       }}>
-        <h2>Checking camera permissions...</h2>
+        <LoadingSpinner size="large" color="#333" />
+        <h2 style={{ 
+          marginTop: '20px',
+          color: '#333',
+          fontFamily: "'Poppins', sans-serif"
+        }}>Checking camera permissions...</h2>
       </div>
     );
   }
@@ -185,25 +208,22 @@ function VideoFeed() {
   if (hasPermission === false) {
     return (
       <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '80vh' 
+        textAlign: 'center',
+        padding: '40px'
       }}>
         <h2>Camera Permission Required</h2>
-        <p style={{ margin: '20px 0' }}>Please enable camera access in your browser to use the Interview Simulator.</p>
-        <div style={{ display: 'flex', gap: '20px' }}>
+        <p>Please enable camera access in your browser to use the Interview Simulator.</p>
+        <div style={{ marginTop: '20px' }}>
           <button
             onClick={checkCameraPermission}
             style={{
-              padding: '12px 24px',
-              fontSize: '16px',
+              padding: '10px 20px',
               backgroundColor: '#4CAF50',
               color: 'white',
               border: 'none',
-              borderRadius: '5px',
+              borderRadius: '4px',
               cursor: 'pointer',
+              marginRight: '10px'
             }}
           >
             Check Again
@@ -211,13 +231,12 @@ function VideoFeed() {
           <button
             onClick={() => navigate('/')}
             style={{
-              padding: '12px 24px',
-              fontSize: '16px',
+              padding: '10px 20px',
               backgroundColor: '#f44336',
               color: 'white',
               border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
+              borderRadius: '4px',
+              cursor: 'pointer'
             }}
           >
             Back to Home
@@ -228,89 +247,95 @@ function VideoFeed() {
   }
 
   return (
-    <div style={{ 
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      minHeight: '100vh',
-      padding: '20px'
-    }}>
-      <h1 style={{ marginBottom: '30px' }}>Interview Simulator</h1>
-      {!showSummary ? (
-        <div style={{ 
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          width: '100%',
-          maxWidth: '800px'
-        }}>
-          <img
-            src="http://127.0.0.1:5000/video_feed"
-            alt="Candidate Face"
-            style={{ 
-              width: "600px", 
-              borderRadius: "10px", 
-              marginBottom: '30px',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-            }}
-            ref={videoRef}
-          />
-          {!isRecording ? (
-            <button
-              onClick={handleStartInterview}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                transition: 'background-color 0.3s'
-              }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#45a049'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}
-            >
-              Start Interview
-            </button>
-          ) : (
+    <>
+      <style>{globalStyle}</style>
+      <div style={{ 
+        maxWidth: '1200px',
+        margin: '0 auto',
+        padding: '20px'
+      }}>
+        {!showSummary ? (
+          <div style={{
+            display: 'flex',
+            gap: '20px',
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ 
+              flex: '1',
+              minWidth: '300px'
+            }}>
+              <h1 style={{ marginBottom: '20px' }}>Interview Simulator</h1>
+              <div style={{
+                borderRadius: '4px',
+                overflow: 'hidden',
+                backgroundColor: '#000'
+              }}>
+                <img
+                  src="http://127.0.0.1:5000/video_feed"
+                  alt="Candidate Face"
+                  style={{ 
+                    width: "100%",
+                    display: "block"
+                  }}
+                  ref={videoRef}
+                />
+              </div>
+            </div>
+
             <div style={{
+              flex: '1',
+              minWidth: '300px',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              gap: '20px'
+              justifyContent: 'center',
+              alignItems: 'center'
             }}>
-              <p style={{ 
-                color: '#666', 
-                margin: '0',
-                fontSize: '16px'
-              }}>
-                Recording in progress... Your emotions are being analyzed.
-              </p>
-              <button
-                onClick={handleStopInterview}
-                style={{
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  backgroundColor: '#f44336',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.3s'
-                }}
-                onMouseOver={(e) => e.target.style.backgroundColor = '#d32f2f'}
-                onMouseOut={(e) => e.target.style.backgroundColor = '#f44336'}
-              >
-                End Interview
-              </button>
+              {!isRecording ? (
+                <button
+                  onClick={handleStartInterview}
+                  style={{
+                    padding: '15px 30px',
+                    backgroundColor: '#333',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '16px'
+                  }}
+                >
+                  Start Interview
+                </button>
+              ) : (
+                <div style={{
+                  textAlign: 'center'
+                }}>
+                  <p style={{ marginBottom: '20px' }}>
+                    <LoadingSpinner size="small" color="#333" />
+                    Recording in progress... Your emotions are being analyzed.
+                  </p>
+                  <button
+                    onClick={handleStopInterview}
+                    style={{
+                      padding: '15px 30px',
+                      backgroundColor: '#f44336',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '16px'
+                    }}
+                  >
+                    End Interview
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ) : (
-        renderEmotionSummary()
-      )}
-    </div>
+          </div>
+        ) : (
+          renderEmotionSummary()
+        )}
+      </div>
+    </>
   );
 }
 

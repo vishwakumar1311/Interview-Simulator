@@ -293,7 +293,6 @@ function Home() {
       }}>
         <LoadingSpinner size="large" color="#3D3D3D" />
       </div>
-<<<<<<< HEAD
     );
   }
 
@@ -380,9 +379,6 @@ function Home() {
         <Footer />
       </div>
     </>
-=======
-    </div>
->>>>>>> 109c80fcbb07f6be7c67214091a1154a5d1b1e13
   );
 }
 

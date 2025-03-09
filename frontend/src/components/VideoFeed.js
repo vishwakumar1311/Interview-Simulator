@@ -296,193 +296,140 @@ function VideoFeed() {
   }
 
   return (
-<<<<<<< HEAD
     <>
       <style>{globalStyle}</style>
-      <div style={{ 
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '20px'
-      }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          minHeight: "100vh",
+          padding: "20px",
+        }}
+      >
+        <h1 style={{ marginBottom: "30px" }}>Interview Simulator</h1>
+  
         {!showSummary ? (
-          <div style={{
-            display: 'flex',
-            gap: '20px',
-            flexWrap: 'wrap'
-          }}>
-            <div style={{ 
-              flex: '1',
-              minWidth: '300px'
-            }}>
-              <h1 style={{ marginBottom: '20px' }}>Interview Simulator</h1>
-              <div style={{
-                borderRadius: '4px',
-                overflow: 'hidden',
-                backgroundColor: '#000'
-              }}>
-                <img
-                  src="http://127.0.0.1:5000/video_feed"
-                  alt="Candidate Face"
-                  style={{ 
-                    width: "100%",
-                    display: "block"
-                  }}
-                  ref={videoRef}
-                />
-              </div>
-            </div>
-
-=======
-    <div style={{ 
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      minHeight: '100vh',
-      padding: '20px'
-    }}>
-      <h1 style={{ marginBottom: '30px' }}>Interview Simulator</h1>
-      {!showSummary ? (
-        <div style={{ 
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          width: '100%',
-          maxWidth: '800px'
-        }}>
-          <img
-            src="http://127.0.0.1:5000/video_feed"
-            alt="Candidate Face"
-            style={{ 
-              width: "600px", 
-              borderRadius: "10px", 
-              marginBottom: '30px',
-              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              width: "100%",
+              maxWidth: "800px",
             }}
-            ref={videoRef}
-          />
-          
-          {isQuestionVisible && (
-            <div style={{
-              width: '100%',
-              padding: '20px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '10px',
-              marginBottom: '20px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}>
-              <h3 style={{ marginBottom: '10px', color: '#2c3e50' }}>
-                Question {currentQuestionIndex + 1} of {INTERVIEW_QUESTIONS.length}
-              </h3>
-              <p style={{ fontSize: '18px', color: '#34495e', marginBottom: '20px' }}>
-                {INTERVIEW_QUESTIONS[currentQuestionIndex]}
-              </p>
-              <button
-                onClick={handleNextQuestion}
-                disabled={currentQuestionIndex === INTERVIEW_QUESTIONS.length - 1}
+          >
+            <div
+              style={{
+                borderRadius: "4px",
+                overflow: "hidden",
+                backgroundColor: "#000",
+                marginBottom: "20px",
+              }}
+            >
+              <img
+                src="http://127.0.0.1:5000/video_feed"
+                alt="Candidate Face"
                 style={{
-                  padding: '8px 16px',
-                  fontSize: '14px',
-                  backgroundColor: '#3498db',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  opacity: currentQuestionIndex === INTERVIEW_QUESTIONS.length - 1 ? 0.5 : 1
+                  width: "600px",
+                  borderRadius: "10px",
+                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                }}
+                ref={videoRef}
+              />
+            </div>
+  
+            {isQuestionVisible && (
+              <div
+                style={{
+                  width: "100%",
+                  padding: "20px",
+                  backgroundColor: "#f8f9fa",
+                  borderRadius: "10px",
+                  marginBottom: "20px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                 }}
               >
-                Next Question
-              </button>
-            </div>
-          )}
-
-          {!isRecording ? (
-            <button
-              onClick={handleStartInterview}
-              style={{
-                padding: '12px 24px',
-                fontSize: '16px',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                transition: 'background-color 0.3s'
-              }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#45a049'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}
-            >
-              Start Interview
-            </button>
-          ) : (
->>>>>>> 109c80fcbb07f6be7c67214091a1154a5d1b1e13
-            <div style={{
-              flex: '1',
-              minWidth: '300px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center'
-            }}>
-<<<<<<< HEAD
-              {!isRecording ? (
-                <button
-                  onClick={handleStartInterview}
+                <h3 style={{ marginBottom: "10px", color: "#2c3e50" }}>
+                  Question {currentQuestionIndex + 1} of{" "}
+                  {INTERVIEW_QUESTIONS.length}
+                </h3>
+                <p
                   style={{
-                    padding: '15px 30px',
-                    backgroundColor: '#333',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '16px'
+                    fontSize: "18px",
+                    color: "#34495e",
+                    marginBottom: "20px",
                   }}
                 >
-                  Start Interview
+                  {INTERVIEW_QUESTIONS[currentQuestionIndex]}
+                </p>
+                <button
+                  onClick={handleNextQuestion}
+                  disabled={currentQuestionIndex === INTERVIEW_QUESTIONS.length - 1}
+                  style={{
+                    padding: "8px 16px",
+                    fontSize: "14px",
+                    backgroundColor: "#3498db",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    opacity:
+                      currentQuestionIndex === INTERVIEW_QUESTIONS.length - 1 ? 0.5 : 1,
+                  }}
+                >
+                  Next Question
                 </button>
-              ) : (
-                <div style={{
-                  textAlign: 'center'
-                }}>
-                  <p style={{ marginBottom: '20px' }}>
-                    <LoadingSpinner size="small" color="#333" />
-                    Recording in progress... Your emotions are being analyzed.
-                  </p>
-                  <button
-                    onClick={handleStopInterview}
-                    style={{
-                      padding: '15px 30px',
-                      backgroundColor: '#f44336',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '16px'
-                    }}
-                  >
-                    End Interview
-                  </button>
-                </div>
-              )}
-=======
+              </div>
+            )}
+  
+            {!isRecording ? (
               <button
-                onClick={handleStopInterview}
+                onClick={handleStartInterview}
                 style={{
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  backgroundColor: '#f44336',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.3s'
+                  padding: "12px 24px",
+                  fontSize: "16px",
+                  backgroundColor: "#4CAF50",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "5px",
+                  cursor: "pointer",
+                  transition: "background-color 0.3s",
                 }}
-                onMouseOver={(e) => e.target.style.backgroundColor = '#d32f2f'}
-                onMouseOut={(e) => e.target.style.backgroundColor = '#f44336'}
+                onMouseOver={(e) => (e.target.style.backgroundColor = "#45a049")}
+                onMouseOut={(e) => (e.target.style.backgroundColor = "#4CAF50")}
               >
-                End Interview
+                Start Interview
               </button>
->>>>>>> 109c80fcbb07f6be7c67214091a1154a5d1b1e13
-            </div>
+            ) : (
+              <div
+                style={{
+                  textAlign: "center",
+                }}
+              >
+                <p style={{ marginBottom: "20px" }}>
+                  <LoadingSpinner size="small" color="#333" />
+                  Recording in progress... Your emotions are being analyzed.
+                </p>
+                <button
+                  onClick={handleStopInterview}
+                  style={{
+                    padding: "12px 24px",
+                    fontSize: "16px",
+                    backgroundColor: "#f44336",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "5px",
+                    cursor: "pointer",
+                    transition: "background-color 0.3s",
+                  }}
+                  onMouseOver={(e) => (e.target.style.backgroundColor = "#d32f2f")}
+                  onMouseOut={(e) => (e.target.style.backgroundColor = "#f44336")}
+                >
+                  End Interview
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           renderEmotionSummary()
@@ -491,5 +438,4 @@ function VideoFeed() {
     </>
   );
 }
-
 export default VideoFeed; 

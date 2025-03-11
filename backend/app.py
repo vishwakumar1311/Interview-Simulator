@@ -314,66 +314,81 @@ def cleanup():
 # Register cleanup function to run on exit
 atexit.register(cleanup)
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+import re
+
+TOGETHER_API_KEY = "06150d84db100f3ea0d4793266abeed1834b2b0ff3c1af53d650afab023bdef5"
+TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
 @app.route('/generate_questions', methods=['POST'])
 def generate_questions():
     try:
         data = request.get_json()
-        print("Received data:", data)  # Debug log
-
-        branch = data.get('branch')
         role = data.get('role')
+        branch = data.get('branch')
         experience = data.get('experience')
 
-        if not all([branch, role, experience]):
-            return jsonify({"error": "Missing required fields"}), 400
-
         headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {OPENAI_API_KEY}"
+            "Authorization": f"Bearer {TOGETHER_API_KEY}",
+            "Content-Type": "application/json"
         }
 
         payload = {
-            "model": "gpt-3.5-turbo",
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
             "messages": [
                 {"role": "system", "content": "You are an expert technical interviewer."},
-                {"role": "user", "content": f"Generate 10 technical and behavioral interview questions for a {role} position with {experience} years of experience and background in {branch}."}
-            ],
-            "temperature": 0.7,
-            "max_tokens": 200  # Limits response size
+                {"role": "user", "content": f"Generate 10 interview questions (5 technical and 5 behavioral) for a {role} position with {experience} years of experience in {branch}. Format the response with clear sections for Technical Questions and Behavioral Questions, numbered 1-5 in each section."}
+            ]
         }
 
-        print("Sending request to OpenAI:", payload)  # Debug log
-        
-        response = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers=headers,
-            json=payload
-        )
-
-        print("OpenAI response status:", response.status_code)  # Debug log
-        print("OpenAI response:", response.text)  # Debug log
+        print("Sending request to Together API...")
+        response = requests.post(TOGETHER_API_URL, headers=headers, json=payload)
+        print("Response status:", response.status_code)
 
         if response.status_code == 200:
-            try:
-                result = response.json()
-                if 'choices' in result and result['choices']:
-                    content = result['choices'][0]['message']['content']
-                    questions = [q.strip() for q in content.split('\n') if q.strip()]
-                    return jsonify({"questions": questions})
-                else:
-                    return jsonify({"error": "Unexpected OpenAI response format"}), 500
-            except ValueError:
-                return jsonify({"error": "Invalid JSON response from OpenAI"}), 500
+            result = response.json()
+            print("Raw API Response:", result)  # DEBUGGING
+
+            if "choices" not in result or not result["choices"]:
+                return jsonify({"error": "No choices returned from API"}), 500
+
+            content = result["choices"][0]["message"]["content"]
+            print("Extracted Content:", content)  # DEBUGGING
+
+            # Initialize storage
+            questions_data = {"technical": [], "behavioral": []}
+
+            # Split into sections
+            sections = content.split("**Behavioral Questions**")
+            technical_section = sections[0] if "**Technical Questions**" in sections[0] else None
+            behavioral_section = sections[1] if len(sections) > 1 else None
+
+            # Extract technical questions
+            if technical_section:
+                technical_questions = re.findall(r"\d+\.\s*(.+)", technical_section)
+                for idx, question in enumerate(technical_questions, start=1):
+                    questions_data["technical"].append({"id": idx, "type": "technical", "question": question})
+
+            # Extract behavioral questions
+            if behavioral_section:
+                behavioral_questions = re.findall(r"\d+\.\s*(.+)", behavioral_section)
+                for idx, question in enumerate(behavioral_questions, start=6):
+                    questions_data["behavioral"].append({"id": idx, "type": "behavioral", "question": question})
+
+            print("Parsed Questions:", questions_data)  # DEBUGGING
+            return jsonify(questions_data)
+
         else:
-            error_message = f"OpenAI API error: {response.text}"
-            print(error_message)  # Debug log
-            return jsonify({"error": error_message}), response.status_code
+            print("API Error:", response.text)
+            return jsonify({"error": "Failed to generate questions"}), response.status_code
 
     except Exception as e:
-        print(f"Error generating questions: {str(e)}")  # Debug log
+        print(f"Error generating questions: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)
+
+
 
 if __name__ == "__main__":
     try:

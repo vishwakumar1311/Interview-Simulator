@@ -32,41 +32,44 @@ function InterviewSetup() {
     experience: ''
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
 
-    try {
-      console.log("Sending request with data:", formData); // Debug log
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
 
-      const response = await fetch('http://localhost:5000/generate_questions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+  try {
+    console.log("Sending request with data:", formData);
 
-      console.log("Response status:", response.status); // Debug log
-      const data = await response.json();
-      console.log("Response data:", data); // Debug log
-      
-      if (response.status !== 200) {
-        throw new Error(data.error || 'Failed to generate questions');
-      }
+    // First make the API call to generate questions
+    const response = await fetch('http://localhost:5000/generate_questions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(formData),
+    });
 
-      // Store questions in localStorage
-      localStorage.setItem('interviewQuestions', JSON.stringify(data.questions));
-      
-      // Navigate to interview page
-      navigate('/interview');
-    } catch (error) {
-      console.error('Detailed error:', error); // Debug log
-      alert(`Error: ${error.message}`);
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error('Failed to generate questions');
     }
-  };
+
+    const data = await response.json();
+    console.log("Response data:", data);
+
+    // Store both the form data and questions in localStorage
+    localStorage.setItem('interviewSetupData', JSON.stringify(formData));
+    localStorage.setItem('interviewQuestions', JSON.stringify(data));
+    
+    // Only navigate after successful API call
+    navigate('/interview');
+  } catch (error) {
+    console.error('Error:', error);
+    alert(`Error generating questions: ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div style={{

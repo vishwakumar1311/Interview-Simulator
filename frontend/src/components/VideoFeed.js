@@ -43,15 +43,9 @@ function VideoFeed() {
 
   useEffect(() => {
     checkCameraPermission();
+    fetchQuestions();
   }, []);
 
-  useEffect(() => {
-    // Load questions from localStorage
-    const savedQuestions = localStorage.getItem('interviewQuestions');
-    if (savedQuestions) {
-      setQuestions(JSON.parse(savedQuestions));
-    }
-  }, []);
 
   const checkCameraPermission = async () => {
     try {
@@ -63,6 +57,54 @@ function VideoFeed() {
       setHasPermission(false);
     }
   };
+
+
+const fetchQuestions = async () => {
+  try {
+    // First try to get questions from localStorage
+    const storedQuestions = localStorage.getItem('interviewQuestions');
+    if (storedQuestions) {
+      const data = JSON.parse(storedQuestions);
+      const allQuestions = [...(data.technical || []), ...(data.behavioral || [])]
+        .sort((a, b) => a.id - b.id);
+      setQuestions(allQuestions);
+      return;
+    }
+
+    // If no stored questions, get the setup data and make API call
+    const setupData = JSON.parse(localStorage.getItem('interviewSetupData'));
+    if (!setupData) {
+      throw new Error("No interview setup data found");
+    }
+
+    const response = await fetch("http://localhost:5000/generate_questions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(setupData)
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch questions");
+    }
+
+    const data = await response.json();
+    console.log("API Response:", data);
+
+    const allQuestions = [...(data.technical || []), ...(data.behavioral || [])]
+      .sort((a, b) => a.id - b.id);
+
+    setQuestions(allQuestions);
+    localStorage.setItem("interviewQuestions", JSON.stringify(data));
+  } catch (error) {
+    console.error("Error fetching questions:", error);
+    setQuestions([]);
+  }
+};
+
+
+
 
   const handleCameraError = async () => {
     try {
@@ -95,11 +137,15 @@ function VideoFeed() {
 
   // Function to handle next question
   const handleNextQuestion = () => {
-    if (currentQuestionIndex < INTERVIEW_QUESTIONS.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      speakQuestion(INTERVIEW_QUESTIONS[currentQuestionIndex + 1]);
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => {
+        const nextIndex = prev + 1;
+        speakQuestion(questions[nextIndex].question); // Extract only the question text
+        return nextIndex;
+      });
     }
-  };
+};
+
 
   // Function to start interview
   const handleStartInterview = async () => {
@@ -108,9 +154,11 @@ function VideoFeed() {
       setIsRecording(true);
       setIsQuestionVisible(true);
       // Speak the first question after a short delay
-      setTimeout(() => {
-        speakQuestion(INTERVIEW_QUESTIONS[0]);
-      }, 1000);
+      if (questions.length > 0) {
+        setTimeout(() => {
+          speakQuestion(questions[0]);
+        }, 1000);
+      }      
     } catch (error) {
       console.error('Error starting interview:', error);
     }
@@ -244,7 +292,7 @@ function VideoFeed() {
         right: 0,
         bottom: 0
       }}>
-        <LoadingSpinner size="large" color="#333" />
+        <LoadingSpinner size="large" color="#333" />  {/* ❓ Check if this renders a <div> inside a <p> */}
         <h2 style={{ 
           marginTop: '20px',
           color: '#333',
@@ -253,6 +301,7 @@ function VideoFeed() {
       </div>
     );
   }
+  
 
   if (hasPermission === false) {
     return (
@@ -352,7 +401,7 @@ function VideoFeed() {
               >
                 <h3 style={{ marginBottom: "10px", color: "#2c3e50" }}>
                   Question {currentQuestionIndex + 1} of{" "}
-                  {INTERVIEW_QUESTIONS.length}
+                  {questions.length}
                 </h3>
                 <p
                   style={{
@@ -361,11 +410,11 @@ function VideoFeed() {
                     marginBottom: "20px",
                   }}
                 >
-                  {INTERVIEW_QUESTIONS[currentQuestionIndex]}
+                  {questions[currentQuestionIndex]?.question || "Loading..."}
                 </p>
                 <button
                   onClick={handleNextQuestion}
-                  disabled={currentQuestionIndex === INTERVIEW_QUESTIONS.length - 1}
+                  disabled={currentQuestionIndex === questions.length - 1}
                   style={{
                     padding: "8px 16px",
                     fontSize: "14px",
@@ -375,7 +424,7 @@ function VideoFeed() {
                     borderRadius: "5px",
                     cursor: "pointer",
                     opacity:
-                      currentQuestionIndex === INTERVIEW_QUESTIONS.length - 1 ? 0.5 : 1,
+                      currentQuestionIndex === questions.length - 1 ? 0.5 : 1,
                   }}
                 >
                   Next Question
@@ -408,7 +457,6 @@ function VideoFeed() {
                 }}
               >
                 <p style={{ marginBottom: "20px" }}>
-                  <LoadingSpinner size="small" color="#333" />
                   Recording in progress... Your emotions are being analyzed.
                 </p>
                 <button

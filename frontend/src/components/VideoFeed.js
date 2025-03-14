@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from './LoadingSpinner';
 import bgImage from './VideoFeed-BG.jpg';
+import interviewer from './interviewer.png';  // Adjust path as needed
 
 const globalStyle = `
   body {
@@ -40,12 +41,16 @@ function VideoFeed() {
   const navigate = useNavigate();
   const speechSynthesis = window.speechSynthesis;
   const [questions, setQuestions] = useState([]);
+  const [isIntroduction, setIsIntroduction] = useState(true);
+  const [attemptedQuestions, setAttemptedQuestions] = useState(0);
+  const [timer, setTimer] = useState(0);
 
   useEffect(() => {
+    console.log("Component mounted, checking camera permission");
     checkCameraPermission();
+    console.log("Fetching questions...");
     fetchQuestions();
   }, []);
-
 
   const checkCameraPermission = async () => {
     try {
@@ -58,53 +63,74 @@ function VideoFeed() {
     }
   };
 
+  const fetchQuestions = async () => {
+    try {
+      // First try to get stored questions
+      const storedQuestions = localStorage.getItem('interviewQuestions');
+      if (storedQuestions) {
+        const data = JSON.parse(storedQuestions);
+        console.log("Retrieved stored questions:", data);
+        
+        // Handle both array and object response formats
+        const allQuestions = data.questions || data;
+        if (Array.isArray(allQuestions)) {
+          setQuestions(allQuestions);
+          return;
+        }
 
-const fetchQuestions = async () => {
-  try {
-    // First try to get questions from localStorage
-    const storedQuestions = localStorage.getItem('interviewQuestions');
-    if (storedQuestions) {
-      const data = JSON.parse(storedQuestions);
-      const allQuestions = [...(data.technical || []), ...(data.behavioral || [])]
-        .sort((a, b) => a.id - b.id);
-      setQuestions(allQuestions);
-      return;
+        // If questions are split into technical/behavioral
+        const combinedQuestions = [
+          ...(data.technical || []),
+          ...(data.behavioral || [])
+        ].sort((a, b) => a.id - b.id);
+
+        console.log("Processed questions:", combinedQuestions);
+        setQuestions(combinedQuestions);
+        return;
+      }
+
+      // If no stored questions, get the setup data and make API call
+      const setupData = JSON.parse(localStorage.getItem('interviewSetupData'));
+      if (!setupData) {
+        console.error("No interview setup data found");
+        return;
+      }
+
+      console.log("Making API call with setup data:", setupData);
+      const response = await fetch("http://localhost:5000/generate_questions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(setupData)
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch questions");
+      }
+
+      const data = await response.json();
+      console.log("API Response:", data);
+
+      // Handle both array and object response formats
+      const allQuestions = data.questions || data;
+      if (Array.isArray(allQuestions)) {
+        setQuestions(allQuestions);
+        return;
+      }
+
+      const combinedQuestions = [
+        ...(data.technical || []),
+        ...(data.behavioral || [])
+      ].sort((a, b) => a.id - b.id);
+
+      setQuestions(combinedQuestions);
+      localStorage.setItem("interviewQuestions", JSON.stringify(data));
+    } catch (error) {
+      console.error("Error fetching questions:", error);
+      setQuestions([]);
     }
-
-    // If no stored questions, get the setup data and make API call
-    const setupData = JSON.parse(localStorage.getItem('interviewSetupData'));
-    if (!setupData) {
-      throw new Error("No interview setup data found");
-    }
-
-    const response = await fetch("http://localhost:5000/generate_questions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(setupData)
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch questions");
-    }
-
-    const data = await response.json();
-    console.log("API Response:", data);
-
-    const allQuestions = [...(data.technical || []), ...(data.behavioral || [])]
-      .sort((a, b) => a.id - b.id);
-
-    setQuestions(allQuestions);
-    localStorage.setItem("interviewQuestions", JSON.stringify(data));
-  } catch (error) {
-    console.error("Error fetching questions:", error);
-    setQuestions([]);
-  }
-};
-
-
-
+  };
 
   const handleCameraError = async () => {
     try {
@@ -128,8 +154,16 @@ const fetchQuestions = async () => {
 
   // Function to speak the question
   const speakQuestion = (question) => {
-    const utterance = new SpeechSynthesisUtterance(question);
-    utterance.rate = 0.9; // Slightly slower rate
+    // Cancel any ongoing speech
+    speechSynthesis.cancel();
+    
+    // Make sure we're speaking a string, not an object
+    const questionText = typeof question === 'object' ? question.question : question;
+    
+    if (!questionText) return; // Guard against undefined/null
+
+    const utterance = new SpeechSynthesisUtterance(questionText);
+    utterance.rate = 0.9;
     utterance.pitch = 1;
     utterance.volume = 1;
     speechSynthesis.speak(utterance);
@@ -137,15 +171,38 @@ const fetchQuestions = async () => {
 
   // Function to handle next question
   const handleNextQuestion = () => {
+    speechSynthesis.cancel();
+    
+    if (isIntroduction) {
+      setIsIntroduction(false);
+      setAttemptedQuestions(prev => prev + 1);
+      
+      // Start first actual question
+      if (questions.length > 0 && questions[0]) {
+        setTimeout(() => {
+          speakQuestion(questions[0].question);
+        }, 500);
+      }
+      return;
+    }
+
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => {
         const nextIndex = prev + 1;
-        speakQuestion(questions[nextIndex].question); // Extract only the question text
+        const nextQuestion = questions[nextIndex];
+        
+        setAttemptedQuestions(prev => prev + 1);
+        
+        setTimeout(() => {
+          if (nextQuestion && nextQuestion.question) {
+            speakQuestion(nextQuestion.question);
+          }
+        }, 500);
+        
         return nextIndex;
       });
     }
-};
-
+  };
 
   // Function to start interview
   const handleStartInterview = async () => {
@@ -153,12 +210,11 @@ const fetchQuestions = async () => {
       await fetch('http://localhost:5000/start_recording', { method: 'POST' });
       setIsRecording(true);
       setIsQuestionVisible(true);
-      // Speak the first question after a short delay
-      if (questions.length > 0) {
-        setTimeout(() => {
-          speakQuestion(questions[0]);
-        }, 1000);
-      }      
+      
+      // Start with introduction
+      speakQuestion("Please introduce yourself in about 30 seconds. After your introduction, click 'Next' to begin the interview questions.");
+      
+      // Questions will start after introduction
     } catch (error) {
       console.error('Error starting interview:', error);
     }
@@ -173,78 +229,13 @@ const fetchQuestions = async () => {
       
       if (data.emotion_summary) {
         setEmotionSummary(data.emotion_summary);
-        setShowSummary(true);
+        setShowSummary(true);  // This will switch to the summary view
+        setIsRecording(false);
       }
-      setIsRecording(false);
     } catch (error) {
       console.error('Error stopping camera:', error);
       navigate('/');
     }
-  };
-
-  const renderEmotionSummary = () => {
-    if (!emotionSummary || !emotionSummary.summary) return null;
-
-    return (
-      <div style={{
-        padding: '20px',
-        maxWidth: '1200px',
-        margin: '0 auto'
-      }}>
-        <div style={{
-          marginBottom: '40px'
-        }}>
-          <h2>Interview Emotion Analysis Report</h2>
-          <div>
-            <h3>Primary Emotion: {emotionSummary.dominant_emotion}</h3>
-            <p>Total Duration: {(emotionSummary.total_frames * 3 / 60).toFixed(1)} minutes</p>
-          </div>
-          <button
-            onClick={() => navigate('/')}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#333',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Return to Home
-          </button>
-        </div>
-
-        <div>
-          <h3>Emotional Distribution</h3>
-          <div>
-            {Object.entries(emotionSummary.summary).map(([emotion, percentage]) => (
-              <div key={emotion} style={{ marginBottom: '20px' }}>
-                <div style={{ 
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  marginBottom: '5px'
-                }}>
-                  <span style={{ textTransform: 'capitalize' }}>{emotion}</span>
-                  <span>{percentage.toFixed(1)}%</span>
-                </div>
-                <div style={{ 
-                  height: '20px',
-                  backgroundColor: '#eee',
-                  borderRadius: '4px'
-                }}>
-                  <div style={{
-                    width: `${percentage}%`,
-                    height: '100%',
-                    backgroundColor: '#4a90e2',
-                    borderRadius: '4px'
-                  }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
   };
 
   // Add cleanup effect when component unmounts
@@ -276,6 +267,25 @@ const fetchQuestions = async () => {
       window.removeEventListener('popstate', handleBeforeUnload);
     };
   }, []);
+
+  // Add timer effect
+  useEffect(() => {
+    let interval;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setTimer(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
+  // Format timer function
+  const formatTime = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   if (hasPermission === null) {
     return (
@@ -347,140 +357,292 @@ const fetchQuestions = async () => {
   return (
     <>
       <style>{globalStyle}</style>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          minHeight: "100vh",
-          padding: "20px",
-        }}
-      >
-        <h1 style={{ marginBottom: "30px" }}>Interview Simulator</h1>
-  
+      <div style={{
+        height: '100vh',
+        width: '100vw',
+        backgroundColor: '#1a1a1a',
+        color: 'white',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
         {!showSummary ? (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              width: "100%",
-              maxWidth: "800px",
-            }}
-          >
-            <div
-              style={{
-                borderRadius: "4px",
-                overflow: "hidden",
-                backgroundColor: "#000",
-                marginBottom: "20px",
-              }}
-            >
-              <img
-                src="http://127.0.0.1:5000/video_feed"
-                alt="Candidate Face"
-                style={{
-                  width: "600px",
-                  borderRadius: "10px",
-                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                }}
-                ref={videoRef}
-              />
+          // Interview Interface
+          <>
+            {/* Header with timer */}
+            <div style={{
+              height: '60px',
+              backgroundColor: '#2d2d2d',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              padding: '0 20px'
+            }}>
+              <div style={{
+                backgroundColor: '#333',
+                padding: '5px 10px',
+                borderRadius: '4px',
+                fontFamily: 'monospace',
+                fontSize: '20px'
+              }}>
+                {formatTime(timer)}
+              </div>
             </div>
-  
-            {isQuestionVisible && (
-              <div
-                style={{
-                  width: "100%",
-                  padding: "20px",
-                  backgroundColor: "#f8f9fa",
-                  borderRadius: "10px",
-                  marginBottom: "20px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                }}
-              >
-                <h3 style={{ marginBottom: "10px", color: "#2c3e50" }}>
-                  Question {currentQuestionIndex + 1} of{" "}
-                  {questions.length}
-                </h3>
-                <p
-                  style={{
-                    fontSize: "18px",
-                    color: "#34495e",
-                    marginBottom: "20px",
-                  }}
-                >
-                  {questions[currentQuestionIndex]?.question || "Loading..."}
-                </p>
-                <button
-                  onClick={handleNextQuestion}
-                  disabled={currentQuestionIndex === questions.length - 1}
-                  style={{
-                    padding: "8px 16px",
-                    fontSize: "14px",
-                    backgroundColor: "#3498db",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                    opacity:
-                      currentQuestionIndex === questions.length - 1 ? 0.5 : 1,
-                  }}
-                >
-                  Next Question
-                </button>
+
+            {/* Main content area */}
+            <div style={{
+              flex: 1,
+              display: 'flex',
+              padding: '20px',
+              gap: '20px'
+            }}>
+              {/* Left side - Video feeds */}
+              <div style={{
+                flex: '1',
+                display: 'flex',
+                gap: '20px',
+                height: 'calc(100vh - 160px)'
+              }}>
+                {/* Interviewer video */}
+                <div style={{
+                  flex: 1,
+                  backgroundColor: '#2d2d2d',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}>
+                  <img
+                    src={interviewer}
+                    alt="Interviewer"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '10px',
+                    left: '10px',
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    padding: '5px 10px',
+                    borderRadius: '4px'
+                  }}>
+                    Interviewer
+                  </div>
+                </div>
+
+                {/* Candidate video */}
+                <div style={{
+                  flex: 1,
+                  backgroundColor: '#2d2d2d',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  position: 'relative'
+                }}>
+                  <img
+                    src="http://127.0.0.1:5000/video_feed"
+                    alt="Candidate Face"
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                    ref={videoRef}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '10px',
+                    left: '10px',
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    padding: '5px 10px',
+                    borderRadius: '4px'
+                  }}>
+                    You
+                  </div>
+                </div>
               </div>
-            )}
-  
-            {!isRecording ? (
-              <button
-                onClick={handleStartInterview}
-                style={{
-                  padding: "12px 24px",
-                  fontSize: "16px",
-                  backgroundColor: "#4CAF50",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "5px",
-                  cursor: "pointer",
-                  transition: "background-color 0.3s",
-                }}
-                onMouseOver={(e) => (e.target.style.backgroundColor = "#45a049")}
-                onMouseOut={(e) => (e.target.style.backgroundColor = "#4CAF50")}
-              >
-                Start Interview
-              </button>
-            ) : (
-              <div
-                style={{
-                  textAlign: "center",
-                }}
-              >
-                <p style={{ marginBottom: "20px" }}>
-                  Recording in progress... Your emotions are being analyzed.
-                </p>
-                <button
-                  onClick={handleStopInterview}
-                  style={{
-                    padding: "12px 24px",
-                    fontSize: "16px",
-                    backgroundColor: "#f44336",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "5px",
-                    cursor: "pointer",
-                    transition: "background-color 0.3s",
-                  }}
-                  onMouseOver={(e) => (e.target.style.backgroundColor = "#d32f2f")}
-                  onMouseOut={(e) => (e.target.style.backgroundColor = "#f44336")}
-                >
-                  End Interview
-                </button>
+
+              {/* Right side - Questions and controls */}
+              <div style={{
+                width: '300px',
+                backgroundColor: '#2d2d2d',
+                borderRadius: '10px',
+                padding: '20px',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                {/* Question display */}
+                {isQuestionVisible && (
+                  <div style={{
+                    flex: 1,
+                    marginBottom: '20px'
+                  }}>
+                    <h3 style={{
+                      color: '#fff',
+                      marginBottom: '10px',
+                      fontSize: '16px'
+                    }}>
+                      {isIntroduction ? "Introduction" : `Question ${currentQuestionIndex + 1}/${questions.length}`}
+                    </h3>
+                    <p style={{
+                      color: '#ddd',
+                      fontSize: '14px',
+                      lineHeight: '1.4'
+                    }}>
+                      {isIntroduction 
+                        ? "Please introduce yourself in about 30 seconds."
+                        : (questions[currentQuestionIndex]?.question || "Loading...")}
+                    </p>
+                  </div>
+                )}
+
+                {/* Control buttons */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  marginTop: 'auto'
+                }}>
+                  {!isRecording ? (
+                    <button
+                      onClick={handleStartInterview}
+                      style={{
+                        padding: '12px',
+                        backgroundColor: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Start Interview
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleNextQuestion}
+                        disabled={!isIntroduction && currentQuestionIndex === questions.length - 1}
+                        style={{
+                          padding: '12px',
+                          backgroundColor: '#3498db',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          opacity: (!isIntroduction && currentQuestionIndex === questions.length - 1) ? 0.5 : 1
+                        }}
+                      >
+                        {isIntroduction ? "Start Questions" : "Next Question"}
+                      </button>
+                      <button
+                        onClick={handleStopInterview}
+                        style={{
+                          padding: '12px',
+                          backgroundColor: '#f44336',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '5px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        End Interview
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          </>
         ) : (
-          renderEmotionSummary()
+          // Summary View
+          <div style={{
+            padding: '40px',
+            height: '100%',
+            overflow: 'auto'
+          }}>
+            <div style={{
+              maxWidth: '1200px',
+              margin: '0 auto',
+              backgroundColor: '#2d2d2d',
+              borderRadius: '15px',
+              padding: '30px'
+            }}>
+              <h2 style={{
+                color: '#fff',
+                marginBottom: '30px',
+                fontSize: '24px'
+              }}>Interview Analysis Report</h2>
+              
+              {emotionSummary && (
+                <>
+                  <div style={{
+                    marginBottom: '30px',
+                    padding: '20px',
+                    backgroundColor: '#333',
+                    borderRadius: '10px'
+                  }}>
+                    <h3 style={{color: '#fff', marginBottom: '15px'}}>
+                      Primary Emotion: {emotionSummary.dominant_emotion}
+                    </h3>
+                    <p style={{color: '#ddd'}}>
+                      Total Duration: {(emotionSummary.total_frames * 3 / 60).toFixed(1)} minutes
+                    </p>
+                    <p style={{color: '#ddd'}}>
+                      Questions Attempted: {attemptedQuestions} out of {questions.length + 1}
+                    </p>
+                  </div>
+
+                  <div style={{marginTop: '30px'}}>
+                    <h3 style={{color: '#fff', marginBottom: '20px'}}>Emotional Distribution</h3>
+                    {Object.entries(emotionSummary.summary).map(([emotion, percentage]) => (
+                      <div key={emotion} style={{marginBottom: '20px'}}>
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          marginBottom: '8px'
+                        }}>
+                          <span style={{
+                            color: '#ddd',
+                            textTransform: 'capitalize'
+                          }}>{emotion}</span>
+                          <span style={{color: '#ddd'}}>{percentage.toFixed(1)}%</span>
+                        </div>
+                        <div style={{
+                          height: '10px',
+                          backgroundColor: '#444',
+                          borderRadius: '5px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            width: `${percentage}%`,
+                            height: '100%',
+                            backgroundColor: '#3498db',
+                            borderRadius: '5px'
+                          }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <button
+                onClick={() => navigate('/')}
+                style={{
+                  padding: '12px 24px',
+                  backgroundColor: '#3498db',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer',
+                  marginTop: '30px'
+                }}
+              >
+                Return to Home
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </>

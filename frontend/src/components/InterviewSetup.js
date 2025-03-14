@@ -1,25 +1,52 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const BRANCHES = [
-  "Computer Science",
-  "Information Technology",
-  "Electronics",
-  "Mechanical",
-  "Civil",
-  "Electrical",
-  "Other"
-];
-
 const ROLES = [
+  // Engineering Roles
   "Software Developer",
-  "Data Scientist",
-  "DevOps Engineer",
   "Full Stack Developer",
   "Frontend Developer",
   "Backend Developer",
-  "System Analyst",
+  "Mobile App Developer",
+  "DevOps Engineer",
+  "Cloud Engineer",
+  "Data Engineer",
+  "Machine Learning Engineer",
+  "AI Engineer",
+  "Blockchain Developer",
+  "Security Engineer",
+  "QA Engineer",
+  "Systems Engineer",
+  "Network Engineer",
+  "Database Administrator",
+  
+  // Data Roles
+  "Data Scientist",
+  "Data Analyst",
+  "Business Analyst",
+  "Business Intelligence Analyst",
+  
+  // Management & Design Roles
   "Project Manager",
+  "Product Manager",
+  "Scrum Master",
+  "UI/UX Designer",
+  "Technical Lead",
+  "Engineering Manager",
+  
+  // Non-Engineering Roles
+  "Marketing Manager",
+  "Sales Manager",
+  "HR Manager",
+  "Financial Analyst",
+  "Content Writer",
+  "Digital Marketing Specialist",
+  "Operations Manager",
+  "Management Consultant",
+  "Business Development Manager",
+  "Account Manager",
+  
+  // Add Other at the end
   "Other"
 ];
 
@@ -27,125 +54,209 @@ function InterviewSetup() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    branch: '',
     role: '',
-    experience: ''
+    experience: '',
+    customRole: ''
   });
+  const [showCustomRole, setShowCustomRole] = useState(false);
 
-
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-
-  try {
-    console.log("Sending request with data:", formData);
-
-    // First make the API call to generate questions
-    const response = await fetch('http://localhost:5000/generate_questions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
+  const handleRoleChange = (e) => {
+    const selectedRole = e.target.value;
+    setShowCustomRole(selectedRole === 'Other');
+    setFormData({
+      ...formData,
+      role: selectedRole,
+      customRole: selectedRole !== 'Other' ? '' : formData.customRole
     });
+  };
 
-    if (!response.ok) {
-      throw new Error('Failed to generate questions');
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // Prepare the data to be sent
+      const submissionData = {
+        role: formData.role === 'Other' ? formData.customRole : formData.role,
+        experience: formData.experience
+      };
+
+      // Make the API call first
+      const response = await fetch('http://localhost:5000/generate_questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(submissionData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate questions');
+      }
+
+      const data = await response.json();
+      console.log("Questions generated:", data);
+
+      // Store both the form data and questions
+      localStorage.setItem('interviewSetupData', JSON.stringify(submissionData));
+      localStorage.setItem('interviewQuestions', JSON.stringify(data));
+      
+      // Navigate only after successful API call
+      navigate('/interview');
+    } catch (error) {
+      console.error('Error:', error);
+      alert(`Error generating questions: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
-
-    const data = await response.json();
-    console.log("Response data:", data);
-
-    // Store both the form data and questions in localStorage
-    localStorage.setItem('interviewSetupData', JSON.stringify(formData));
-    localStorage.setItem('interviewQuestions', JSON.stringify(data));
-    
-    // Only navigate after successful API call
-    navigate('/interview');
-  } catch (error) {
-    console.error('Error:', error);
-    alert(`Error generating questions: ${error.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   return (
     <div style={{
-      maxWidth: '600px',
-      margin: '0 auto',
+      minHeight: '100vh',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
       padding: '20px'
     }}>
-      <h1>Interview Setup</h1>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '20px' }}>
-          <label>
-            Branch:
-            <input
-              type="text"
-              value={formData.branch}
-              onChange={(e) => setFormData({...formData, branch: e.target.value})}
-              required
-              style={{
-                width: '100%',
-                padding: '8px',
-                marginTop: '5px'
-              }}
-            />
-          </label>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label>
-            Role:
-            <input
-              type="text"
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '15px',
+        padding: '40px',
+        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+        width: '100%',
+        maxWidth: '500px'
+      }}>
+        <h1 style={{
+          color: '#2c3e50',
+          marginBottom: '30px',
+          textAlign: 'center',
+          fontSize: '28px',
+          fontWeight: '600'
+        }}>Interview Setup</h1>
+        
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '25px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              color: '#34495e',
+              fontSize: '16px',
+              fontWeight: '500'
+            }}>
+              Select Role:
+            </label>
+            <select
               value={formData.role}
-              onChange={(e) => setFormData({...formData, role: e.target.value})}
+              onChange={handleRoleChange}
               required
               style={{
                 width: '100%',
-                padding: '8px',
-                marginTop: '5px'
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e0',
+                backgroundColor: '#f8fafc',
+                fontSize: '16px',
+                transition: 'all 0.3s ease',
+                outline: 'none'
               }}
-            />
-          </label>
-        </div>
+            >
+              <option value="">Choose a role...</option>
+              {ROLES.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
+            </select>
+          </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label>
-            Years of Experience:
+          {showCustomRole && (
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                color: '#34495e',
+                fontSize: '16px',
+                fontWeight: '500'
+              }}>
+                Specify Your Role:
+              </label>
+              <input
+                type="text"
+                value={formData.customRole}
+                onChange={(e) => setFormData({...formData, customRole: e.target.value})}
+                required
+                placeholder="Enter your specific role"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e0',
+                  backgroundColor: '#f8fafc',
+                  fontSize: '16px',
+                  boxSizing: 'border-box',
+                  transition: 'all 0.3s ease',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          )}
+
+          <div style={{ marginBottom: '25px' }}>
+            <label style={{
+              display: 'block',
+              marginBottom: '8px',
+              color: '#34495e',
+              fontSize: '16px',
+              fontWeight: '500'
+            }}>
+              Years of Experience:
+            </label>
             <input
               type="number"
               value={formData.experience}
               onChange={(e) => setFormData({...formData, experience: e.target.value})}
               required
               min="0"
+              placeholder="Enter years of experience"
               style={{
                 width: '100%',
-                padding: '8px',
-                marginTop: '5px'
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e0',
+                backgroundColor: '#f8fafc',
+                fontSize: '16px',
+                boxSizing: 'border-box',
+                transition: 'all 0.3s ease',
+                outline: 'none'
               }}
             />
-          </label>
-        </div>
+          </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: loading ? '#ccc' : '#4CAF50',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
-        >
-          {loading ? 'Generating Questions...' : 'Start Interview'}
-        </button>
-      </form>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '14px',
+              backgroundColor: loading ? '#94a3b8' : '#3b82f6',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '500',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.3s ease',
+              transform: loading ? 'scale(1)' : 'scale(1)',
+              hover: {
+                backgroundColor: '#2563eb',
+                transform: 'scale(1.02)'
+              }
+            }}
+          >
+            {loading ? 'Setting Up Interview...' : 'Start Interview'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

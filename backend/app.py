@@ -10,6 +10,8 @@ from collections import defaultdict
 import time
 from datetime import datetime
 import requests
+import PyPDF2
+from io import BytesIO
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -383,6 +385,26 @@ def generate_questions():
     except Exception as e:
         print(f"Error generating questions: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/extract-text', methods=['POST'])
+def extract_text():
+    if 'pdf' not in request.files:
+        return jsonify({'error': 'No PDF file provided'}), 400
+    
+    pdf_file = request.files['pdf']
+    
+    try:
+        # Read PDF file
+        pdf_reader = PyPDF2.PdfReader(BytesIO(pdf_file.read()))
+        
+        # Extract text from all pages
+        text = ''
+        for page in pdf_reader.pages:
+            text += page.extract_text() + '\n'
+        
+        return jsonify({'text': text.strip()})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

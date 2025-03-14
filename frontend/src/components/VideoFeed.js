@@ -44,12 +44,14 @@ function VideoFeed() {
   const [isIntroduction, setIsIntroduction] = useState(true);
   const [attemptedQuestions, setAttemptedQuestions] = useState(0);
   const [timer, setTimer] = useState(0);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
 
   useEffect(() => {
-    console.log("Component mounted, checking camera permission");
-    checkCameraPermission();
-    console.log("Fetching questions...");
-    fetchQuestions();
+    const init = async () => {
+      await checkCameraPermission();
+      await fetchQuestions();
+    };
+    init();
   }, []);
 
   const checkCameraPermission = async () => {
@@ -65,70 +67,61 @@ function VideoFeed() {
 
   const fetchQuestions = async () => {
     try {
-      // First try to get stored questions
-      const storedQuestions = localStorage.getItem('interviewQuestions');
-      if (storedQuestions) {
-        const data = JSON.parse(storedQuestions);
-        console.log("Retrieved stored questions:", data);
+        console.log("Fetching questions...");
         
-        // Handle both array and object response formats
-        const allQuestions = data.questions || data;
-        if (Array.isArray(allQuestions)) {
-          setQuestions(allQuestions);
-          return;
+        const storedQuestions = localStorage.getItem('interviewQuestions');
+        console.log("Stored questions:", storedQuestions);
+
+        if (!storedQuestions) {
+            throw new Error("No questions in localStorage");
         }
 
-        // If questions are split into technical/behavioral
-        const combinedQuestions = [
-          ...(data.technical || []),
-          ...(data.behavioral || [])
-        ].sort((a, b) => a.id - b.id);
+        const parsedQuestions = JSON.parse(storedQuestions);
+        console.log("Parsed questions:", parsedQuestions);
 
-        console.log("Processed questions:", combinedQuestions);
-        setQuestions(combinedQuestions);
-        return;
-      }
+        // Process questions into a flat array
+        let finalQuestions = [];
 
-      // If no stored questions, get the setup data and make API call
-      const setupData = JSON.parse(localStorage.getItem('interviewSetupData'));
-      if (!setupData) {
-        console.error("No interview setup data found");
-        return;
-      }
+        if (parsedQuestions.technical) {
+            finalQuestions = [...finalQuestions, ...parsedQuestions.technical];
+        }
+        if (parsedQuestions.behavioral) {
+            finalQuestions = [...finalQuestions, ...parsedQuestions.behavioral];
+        }
 
-      console.log("Making API call with setup data:", setupData);
-      const response = await fetch("http://localhost:5000/generate_questions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(setupData)
-      });
+        // If no questions found, use default questions
+        if (finalQuestions.length === 0) {
+            finalQuestions = [
+                "Tell me about yourself and your experience.",
+                "What are your key technical skills?",
+                "Describe a challenging project you worked on.",
+                "How do you handle difficult situations in a team?",
+                "What are your career goals?",
+                "How do you stay updated with industry trends?",
+                "Describe your problem-solving approach.",
+                "What interests you about this role?",
+                "How do you handle pressure and deadlines?",
+                "Do you have any questions for me?"
+            ];
+        }
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch questions");
-      }
+        console.log("Final questions array:", finalQuestions);
+        setQuestions(finalQuestions);
 
-      const data = await response.json();
-      console.log("API Response:", data);
-
-      // Handle both array and object response formats
-      const allQuestions = data.questions || data;
-      if (Array.isArray(allQuestions)) {
-        setQuestions(allQuestions);
-        return;
-      }
-
-      const combinedQuestions = [
-        ...(data.technical || []),
-        ...(data.behavioral || [])
-      ].sort((a, b) => a.id - b.id);
-
-      setQuestions(combinedQuestions);
-      localStorage.setItem("interviewQuestions", JSON.stringify(data));
     } catch (error) {
-      console.error("Error fetching questions:", error);
-      setQuestions([]);
+        console.error("Error in fetchQuestions:", error);
+        
+        // Use default questions if anything fails
+        const setupData = JSON.parse(localStorage.getItem('interviewSetupData')) || {
+            role: "Software Developer",
+            experience: "2"
+        };
+
+        setQuestions(INTERVIEW_QUESTIONS);
+        localStorage.setItem('interviewQuestions', JSON.stringify({
+            technical: INTERVIEW_QUESTIONS.slice(0, 5),
+            behavioral: INTERVIEW_QUESTIONS.slice(5)
+        }));
     }
   };
 
@@ -286,6 +279,11 @@ function VideoFeed() {
     const secs = seconds % 60;
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Add useEffect to log when questions change
+  useEffect(() => {
+    console.log("Current questions in state:", questions);
+  }, [questions]);
 
   if (hasPermission === null) {
     return (
@@ -473,7 +471,7 @@ function VideoFeed() {
                 flexDirection: 'column'
               }}>
                 {/* Question display */}
-                {isQuestionVisible && (
+                {isQuestionVisible && questions.length > 0 && (
                   <div style={{
                     flex: 1,
                     marginBottom: '20px'
@@ -492,7 +490,9 @@ function VideoFeed() {
                     }}>
                       {isIntroduction 
                         ? "Please introduce yourself in about 30 seconds."
-                        : (questions[currentQuestionIndex]?.question || "Loading...")}
+                        : (typeof questions[currentQuestionIndex] === 'string' 
+                            ? questions[currentQuestionIndex] 
+                            : questions[currentQuestionIndex]?.question || "Loading...")}
                     </p>
                   </div>
                 )}

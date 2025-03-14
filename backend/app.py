@@ -324,7 +324,6 @@ def generate_questions():
     try:
         data = request.get_json()
         role = data.get('role')
-        branch = data.get('branch')
         experience = data.get('experience')
 
         headers = {
@@ -336,7 +335,7 @@ def generate_questions():
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
             "messages": [
                 {"role": "system", "content": "You are an expert technical interviewer."},
-                {"role": "user", "content": f"Generate 10 interview questions (5 technical and 5 behavioral) for a {role} position with {experience} years of experience in {branch}. Format the response with clear sections for Technical Questions and Behavioral Questions, numbered 1-5 in each section."}
+                {"role": "user", "content": f"Generate 10 interview questions (5 technical and 5 behavioral) for a {role} position with {experience} years of experience. Format the response with clear sections for Technical Questions and Behavioral Questions, numbered 1-5 in each section."}
             ]
         }
 

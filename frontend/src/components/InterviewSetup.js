@@ -75,37 +75,36 @@ function InterviewSetup() {
     setLoading(true);
 
     try {
-      // Prepare the data to be sent
+      // Only send role and experience
       const submissionData = {
         role: formData.role === 'Other' ? formData.customRole : formData.role,
-        experience: formData.experience
+        experience: formData.experience.toString()
       };
 
-      // Make the API call first
+      console.log("Sending data to API:", submissionData);
+
       const response = await fetch('http://localhost:5000/generate_questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(submissionData),
+        body: JSON.stringify(submissionData)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate questions');
+        throw new Error(`API call failed with status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Questions generated:", data);
+      console.log("API Response:", data);
 
-      // Store both the form data and questions
-      localStorage.setItem('interviewSetupData', JSON.stringify(submissionData));
       localStorage.setItem('interviewQuestions', JSON.stringify(data));
+      localStorage.setItem('interviewSetupData', JSON.stringify(submissionData));
       
-      // Navigate only after successful API call
       navigate('/interview');
     } catch (error) {
-      console.error('Error:', error);
-      alert(`Error generating questions: ${error.message}`);
+      console.error("Error:", error);
+      alert(`Failed to setup interview: ${error.message}`);
     } finally {
       setLoading(false);
     }

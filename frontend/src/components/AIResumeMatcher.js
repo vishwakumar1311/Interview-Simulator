@@ -5,6 +5,7 @@ import bgImage from './ResumeMatcher-BG.jpg';
 
 // Add global style to ensure the background covers everything
 const globalStyle = `
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
   body {
     margin: 0;
     padding: 0;
@@ -24,7 +25,8 @@ function AIResumeMatcher() {
   const [jobDescription, setJobDescription] = useState('');
   const [analysisResults, setAnalysisResults] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  
+  const [showResults, setShowResults] = useState(false);
+
   const TOGETHER_API_KEY = '06150d84db100f3ea0d4793266abeed1834b2b0ff3c1af53d650afab023bdef5'; // Replace with your API key
 
   const extractTextFromPDF = async (file) => {
@@ -62,7 +64,27 @@ function AIResumeMatcher() {
           messages: [
             {
               role: "system",
-              content: "You are an AI Resume Matcher. Compare the resume text and job description. - Calculate an ATS score as a percentage (e.g., 72%). - Provide **three-point feedback** summarizing top three key improvements.- Output Score : 'XX%',Feedback: 'Short feedback with three improvements.'} - Keep it under **100 words**."
+              content: `You are an AI Career Coach providing direct feedback to a job candidate. 
+              Analyze their resume against the job description and provide personalized feedback in exactly this format:
+
+Score: XX%
+
+Your Matching Skills:
+• "Start with 'You have demonstrated...' or 'Your experience in...' to highlight their strengths"
+• "List 2-3 key skills that align well with the job"
+• "Be specific about their relevant achievements"
+
+Areas for Growth:
+• "Start with 'Consider adding...' or 'You could strengthen...' to suggest improvements"
+• "Provide specific, actionable suggestions"
+• "Focus on skills mentioned in the job description"
+
+Recommended Next Steps:
+• "Give clear, actionable steps they can take immediately"
+• "Suggest specific certifications or skills to acquire"
+• "Provide tips for highlighting certain experiences"
+
+Keep the tone encouraging and constructive, addressing the candidate directly with "you" and "your".`
             },
             {
               role: "user",
@@ -79,15 +101,21 @@ function AIResumeMatcher() {
       }
 
       const data = await response.json();
-      
-      // Parse the response to extract score and feedback
       const responseText = data.choices[0].message.content;
-      const scoreMatch = responseText.match(/Score\s*:\s*['"]?(\d+)%/i);
-      const feedbackMatch = responseText.match(/Feedback\s*:\s*['"]?(.*?)['"]?(\}|\s*$)/i);
+      
+      // Extract score
+      const scoreMatch = responseText.match(/Score:\s*(\d+)%/);
+      const score = scoreMatch ? scoreMatch[1] : "N/A";
+
+      // Split the response into sections
+      const sections = responseText.split('\n\n').filter(Boolean);
+      
+      // Remove the score section and join the rest as feedback
+      const feedback = sections.slice(1).join('\n\n');
 
       return {
-        score: scoreMatch ? scoreMatch[1] : "N/A",
-        feedback: feedbackMatch ? feedbackMatch[1].trim() : "No feedback available"
+        score: score,
+        feedback: feedback || "No feedback available"
       };
     } catch (error) {
       console.error('Error analyzing resume:', error);
@@ -107,6 +135,7 @@ function AIResumeMatcher() {
       const resumeText = await extractTextFromPDF(resume);
       const analysis = await analyzeResume(resumeText, jobDescription);
       setAnalysisResults(analysis);
+      setShowResults(true);
     } catch (error) {
       alert('Error analyzing resume: ' + error.message);
       console.error('Analysis error:', error);
@@ -115,178 +144,361 @@ function AIResumeMatcher() {
     }
   };
 
+  const handleInterviewClick = () => {
+    navigate('/interview');
+  };
+
+  const handleHomeClick = () => {
+    navigate('/');
+  };
+
+  const handleAssessmentClick = () => {
+    navigate('/assessment');
+  };
+
+  const ResultsPage = () => (
+    <div style={{ 
+      maxWidth: '800px', 
+      marginLeft: 'auto',
+      marginRight: '40px',
+      padding: '20px',
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      <h1 style={{ 
+        marginBottom: '35px',
+        textAlign: 'left',
+        color: '#1a1a1a',
+        fontSize: '2.5rem',
+        fontFamily: "'Montserrat', sans-serif",
+        fontWeight: '600',
+        letterSpacing: '-0.5px',
+        position: 'relative',
+        paddingBottom: '15px'
+      }}>Analysis Results
+        <div style={{
+          content: '""',
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          width: '100%',
+          height: '4px',
+          backgroundColor: '#4CAF50',
+          borderRadius: '2px'
+        }}/>
+      </h1>
+
+      <div style={{
+        backgroundColor: 'rgba(255, 255, 255, 0.92)',
+        backdropFilter: 'blur(10px)',
+        padding: '35px',
+        borderRadius: '12px',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)',
+        marginBottom: '30px'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginBottom: '30px'
+        }}>
+          <div style={{
+            width: '120px',
+            height: '120px',
+            borderRadius: '50%',
+            border: '4px solid',
+            borderColor: parseInt(analysisResults.score) >= 70 ? '#4CAF50' : '#f44336',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '32px',
+            fontWeight: 'bold',
+            marginRight: '25px',
+            backgroundColor: 'white',
+            fontFamily: "'Montserrat', sans-serif"
+          }}>
+            {analysisResults.score}%
+          </div>
+          <div>
+            <h4 style={{ 
+              marginBottom: '5px',
+              fontSize: '1.4rem',
+              color: '#1a1a1a',
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: '600'
+            }}>ATS Score</h4>
+            <p style={{ 
+              color: '#666',
+              fontSize: '1.1rem'
+            }}>Match percentage with job requirements</p>
+          </div>
+        </div>
+
+        {analysisResults.feedback.split('\n\n').map((section, index) => {
+          if (!section.trim()) return null;
+          
+          const [title, ...points] = section.split('\n');
+          return (
+            <div key={index} style={{ 
+              marginBottom: '30px',
+              backgroundColor: 'rgba(250, 250, 250, 0.95)',
+              padding: '25px',
+              borderRadius: '10px',
+              border: '1px solid rgba(0, 0, 0, 0.06)'
+            }}>
+              <h5 style={{ 
+                color: '#2c3e50',
+                marginBottom: '20px',
+                fontSize: '1.15rem',
+                fontFamily: "'Montserrat', sans-serif",
+                fontWeight: '600',
+                letterSpacing: '0.2px',
+                borderBottom: '2px solid rgba(74, 175, 80, 0.3)',
+                paddingBottom: '12px'
+              }}>{title}</h5>
+              <ul style={{ 
+                listStyle: 'none',
+                padding: 0,
+                margin: 0
+              }}>
+                {points.filter(point => point.trim()).map((point, i) => (
+                  <li key={i} style={{
+                    marginBottom: '12px',
+                    paddingLeft: '24px',
+                    position: 'relative',
+                    lineHeight: '1.6',
+                    color: '#333',
+                    fontSize: '0.95rem'
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      left: '0',
+                      color: '#4CAF50',
+                      fontWeight: '600'
+                    }}>•</span>
+                    {point.replace('•', '').trim()}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{
+        display: 'flex',
+        gap: '15px',
+        justifyContent: 'center',
+        marginTop: '20px',
+        marginBottom: '40px',
+        paddingBottom: '20px'
+      }}>
+        <button
+          onClick={handleHomeClick}
+          style={{
+            padding: '14px 28px',
+            backgroundColor: '#333',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '500',
+            fontFamily: "'Montserrat', sans-serif",
+            transition: 'background-color 0.3s',
+            flex: '1',
+            maxWidth: '200px'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#444'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#333'}
+        >
+          Back to Home
+        </button>
+
+        <button
+          onClick={handleInterviewClick}
+          style={{
+            padding: '14px 28px',
+            backgroundColor: '#4CAF50',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '500',
+            fontFamily: "'Montserrat', sans-serif",
+            transition: 'background-color 0.3s',
+            flex: '1',
+            maxWidth: '200px'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#45a049'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#4CAF50'}
+        >
+          Interview Simulator
+        </button>
+
+        <button
+          onClick={handleAssessmentClick}
+          style={{
+            padding: '14px 28px',
+            backgroundColor: '#027c68',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: '500',
+            fontFamily: "'Montserrat', sans-serif",
+            transition: 'background-color 0.3s',
+            flex: '1',
+            maxWidth: '200px'
+          }}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#026355'}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#d9d9d9'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#e6e6e6'}
+        >
+          Online Assessment
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <style>{globalStyle}</style>
-      <div style={{ 
-        maxWidth: '800px', 
-        marginLeft: 'auto',
-        marginRight: '40px',
-        padding: '20px',
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center'
-      }}>
-        <h1 style={{ 
-          marginBottom: '30px', 
-          textAlign: 'left',
-          color: '#333',
-          fontSize: '2.5rem'
-        }}>Resume Matcher</h1>
-        
-        <div style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.85)',
-          backdropFilter: 'blur(10px)',
-          padding: '30px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+      {!showResults ? (
+        <div style={{ 
+          maxWidth: '800px', 
+          marginLeft: 'auto',
+          marginRight: '40px',
+          padding: '20px',
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center'
         }}>
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '20px' }}>
-              <label htmlFor="resume" style={{ 
-                display: 'block', 
-                marginBottom: '10px', 
-                color: '#333',
-                fontSize: '1.1rem',
-                fontWeight: '500'
-              }}>
-                Upload Resume (PDF)
-              </label>
-              <input
-                type="file"
-                id="resume"
-                accept=".pdf"
-                onChange={(e) => setResume(e.target.files[0])}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)'
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label htmlFor="jobDescription" style={{ 
-                display: 'block', 
-                marginBottom: '10px', 
-                color: '#333',
-                fontSize: '1.1rem',
-                fontWeight: '500'
-              }}>
-                Job Description
-              </label>
-              <textarea
-                id="jobDescription"
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  minHeight: '150px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                  fontSize: '1rem'
-                }}
-                placeholder="Paste the job description here..."
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isAnalyzing}
-              style={{
-                width: '100%',
-                padding: '14px',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: isAnalyzing ? 'not-allowed' : 'pointer',
-                opacity: isAnalyzing ? 0.7 : 1,
-                fontSize: '1.1rem',
-                fontWeight: '500'
-              }}
-            >
-              {isAnalyzing ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                  <LoadingSpinner size="small" color="white" />
-                  Analyzing Resume...
-                </div>
-              ) : (
-                'Analyze Resume'
-              )}
-            </button>
-          </form>
-
-          {analysisResults && (
+          <h1 style={{ 
+            marginBottom: '35px',
+            textAlign: 'left',
+            color: '#1a1a1a',
+            fontSize: '2.5rem',
+            fontFamily: "'Montserrat', sans-serif",
+            fontWeight: '600',
+            letterSpacing: '-0.5px',
+            position: 'relative',
+            paddingBottom: '15px'
+          }}>Resume Matcher
             <div style={{
-              marginTop: '30px',
-              padding: '20px',
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              borderRadius: '8px',
-              border: '1px solid rgba(0, 0, 0, 0.1)'
-            }}>
-              <h3 style={{ 
-                marginBottom: '15px',
-                fontSize: '1.3rem',
-                color: '#333'
-              }}>Analysis Results</h3>
-              
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                marginBottom: '20px'
-              }}>
-                <div style={{
-                  width: '100px',
-                  height: '100px',
-                  borderRadius: '50%',
-                  border: '3px solid',
-                  borderColor: parseInt(analysisResults.score) >= 70 ? '#4CAF50' : '#f44336',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '28px',
-                  fontWeight: 'bold',
-                  marginRight: '20px',
-                  backgroundColor: 'white'
+              content: '""',
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: '100%',
+              height: '4px',
+              backgroundColor: '#4CAF50',
+              borderRadius: '2px'
+            }}/>
+          </h1>
+          
+          <div style={{
+            backgroundColor: 'rgba(255, 255, 255, 0.92)',
+            backdropFilter: 'blur(10px)',
+            padding: '35px',
+            borderRadius: '12px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
+          }}>
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: '20px' }}>
+                <label htmlFor="resume" style={{ 
+                  display: 'block', 
+                  marginBottom: '10px', 
+                  color: '#333',
+                  fontSize: '1.1rem',
+                  fontWeight: '500'
                 }}>
-                  {analysisResults.score}%
-                </div>
-                <div>
-                  <h4 style={{ 
-                    marginBottom: '5px',
-                    fontSize: '1.2rem',
-                    color: '#333'
-                  }}>ATS Score</h4>
-                  <p style={{ color: '#666' }}>Match percentage with job requirements</p>
-                </div>
+                  Upload Resume (PDF)
+                </label>
+                <input
+                  type="file"
+                  id="resume"
+                  accept=".pdf"
+                  onChange={(e) => setResume(e.target.files[0])}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)'
+                  }}
+                />
               </div>
 
-              <div style={{
-                backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                padding: '20px',
-                borderRadius: '8px'
-              }}>
-                <h4 style={{ 
-                  marginBottom: '10px',
+              <div style={{ marginBottom: '20px' }}>
+                <label htmlFor="jobDescription" style={{ 
+                  display: 'block', 
+                  marginBottom: '10px', 
+                  color: '#333',
                   fontSize: '1.1rem',
-                  color: '#333'
-                }}>Improvement Suggestions</h4>
-                <p style={{ 
-                  whiteSpace: 'pre-line',
-                  color: '#444',
-                  lineHeight: '1.5'
-                }}>{analysisResults.feedback}</p>
+                  fontWeight: '500'
+                }}>
+                  Job Description
+                </label>
+                <textarea
+                  id="jobDescription"
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    minHeight: '150px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    fontSize: '1rem'
+                  }}
+                  placeholder="Paste the job description here..."
+                />
               </div>
-            </div>
-          )}
+
+                <button
+                  type="submit"
+                  disabled={isAnalyzing}
+                  style={{
+                  width: '100%',
+                  padding: '14px',
+                  backgroundColor: '#4CAF50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                    cursor: isAnalyzing ? 'not-allowed' : 'pointer',
+                  opacity: isAnalyzing ? 0.7 : 1,
+                  fontSize: '1.1rem',
+                  fontWeight: '500',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center'
+                }}
+              >
+                {isAnalyzing ? (
+                  <div style={{ 
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    justifyContent: 'center'
+                  }}>
+                    <LoadingSpinner size="small" color="white" />
+                    <span>Analyzing Resume...</span>
+                  </div>
+                ) : (
+                  'Analyze Resume'
+                )}
+                </button>
+            </form>
+          </div>
         </div>
-      </div>
+      ) : (
+        <ResultsPage />
+      )}
     </>
   );
 }

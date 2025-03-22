@@ -37,6 +37,7 @@ function VideoFeed() {
   const [hasPermission, setHasPermission] = useState(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isQuestionVisible, setIsQuestionVisible] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const videoRef = useRef();
   const navigate = useNavigate();
   const speechSynthesis = window.speechSynthesis;
@@ -147,18 +148,23 @@ function VideoFeed() {
 
   // Function to speak the question
   const speakQuestion = (question) => {
-    // Cancel any ongoing speech
     speechSynthesis.cancel();
     
-    // Make sure we're speaking a string, not an object
     const questionText = typeof question === 'object' ? question.question : question;
     
-    if (!questionText) return; // Guard against undefined/null
+    if (!questionText) return;
 
+    setIsSpeaking(true); // Start speaking animation
     const utterance = new SpeechSynthesisUtterance(questionText);
     utterance.rate = 0.9;
     utterance.pitch = 1;
     utterance.volume = 1;
+    
+    // Add onend handler to stop animation when speech ends
+    utterance.onend = () => {
+      setIsSpeaking(false);
+    };
+    
     speechSynthesis.speak(utterance);
   };
 
@@ -407,7 +413,10 @@ function VideoFeed() {
                   backgroundColor: '#2d2d2d',
                   borderRadius: '10px',
                   overflow: 'hidden',
-                  position: 'relative'
+                  position: 'relative',
+                  border: isSpeaking ? '3px solid #4CAF50' : 'none',
+                  transition: 'border 0.3s ease-in-out',
+                  boxShadow: isSpeaking ? '0 0 10px rgba(76, 175, 80, 0.5)' : 'none'
                 }}>
                   <img
                     src={interviewer}

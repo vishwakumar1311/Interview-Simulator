@@ -347,35 +347,43 @@ def generate_questions():
 
         if response.status_code == 200:
             result = response.json()
-            print("Raw API Response:", result)  # DEBUGGING
+            print("Raw API Response:", result)  # Debugging
 
             if "choices" not in result or not result["choices"]:
                 return jsonify({"error": "No choices returned from API"}), 500
 
             content = result["choices"][0]["message"]["content"]
-            print("Extracted Content:", content)  # DEBUGGING
+            print("Extracted Content:", content)  # Debugging
 
-            # Initialize storage
             questions_data = {"technical": [], "behavioral": []}
 
-            # Split into sections
-            sections = content.split("**Behavioral Questions**")
-            technical_section = sections[0] if "**Technical Questions**" in sections[0] else None
-            behavioral_section = sections[1] if len(sections) > 1 else None
+            # Check if expected headers exist
+            if "**Technical Questions**" in content and "**Behavioral Questions**" in content:
+                sections = content.split("**Behavioral Questions**")
+                technical_section = sections[0].split("**Technical Questions**")[-1] if len(sections) > 0 else None
+                behavioral_section = sections[1] if len(sections) > 1 else None
+            else:
+                # Fallback: Extract all numbered questions without relying on headers
+                technical_section = content
+                behavioral_section = None
 
-            # Extract technical questions
+            # Extract technical questions (1-5)
             if technical_section:
-                technical_questions = re.findall(r"\d+\.\s*(.+)", technical_section)
-                for idx, question in enumerate(technical_questions, start=1):
-                    questions_data["technical"].append({"id": idx, "type": "technical", "question": question})
+                technical_questions = re.findall(r"^\d+\.\s*(.+)", technical_section, re.MULTILINE)
+                for idx, question in enumerate(technical_questions[:5], start=1):
+                    questions_data["technical"].append({"id": idx, "question": question})
 
-            # Extract behavioral questions
+            # Extract behavioral questions (6-10)
             if behavioral_section:
-                behavioral_questions = re.findall(r"\d+\.\s*(.+)", behavioral_section)
-                for idx, question in enumerate(behavioral_questions, start=6):
-                    questions_data["behavioral"].append({"id": idx, "type": "behavioral", "question": question})
+                behavioral_questions = re.findall(r"^\d+\.\s*(.+)", behavioral_section, re.MULTILINE)
+            else:
+                # Fallback: If no behavioral section is found, extract remaining questions from technical_section
+                behavioral_questions = technical_questions[5:]
 
-            print("Parsed Questions:", questions_data)  # DEBUGGING
+            for idx, question in enumerate(behavioral_questions[:5], start=6):
+                questions_data["behavioral"].append({"id": idx, "question": question})
+
+            print("Parsed Questions:", questions_data)  # Debugging
             return jsonify(questions_data)
 
         else:
@@ -385,6 +393,7 @@ def generate_questions():
     except Exception as e:
         print(f"Error generating questions: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route('/extract-text', methods=['POST'])
 def extract_text():

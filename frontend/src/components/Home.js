@@ -2,9 +2,11 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from './LoadingSpinner';
 import bgImage from './Home-BG.jpg';
+import illustration from './Illustration.jpg';
 
 // Add global style for background
 const globalStyle = `
+  @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
   body {
     margin: 0;
     padding: 0;
@@ -50,6 +52,13 @@ function Home() {
       // Navigate and force reload even on error
       navigate('/setup');
       window.location.reload();
+    }
+  };
+
+  const scrollToComponents = () => {
+    const componentsSection = document.getElementById('components-section');
+    if (componentsSection) {
+      componentsSection.scrollIntoView({ behavior: 'smooth' });
     }
   };
 
@@ -130,8 +139,8 @@ function Home() {
         fontSize: '24px',
         fontWeight: '600',
         color: '#333',
-        fontFamily: "'Poppins', sans-serif"
-      }}>Interview Kit</h2>
+        fontFamily: "'Montserrat', sans-serif"
+      }}>RecruSkill</h2>
     </header>
   );
 
@@ -161,7 +170,7 @@ function Home() {
             fontSize: '20px',
             fontWeight: '600',
             fontFamily: "'Poppins', sans-serif"
-          }}>Interview Kit</h3>
+          }}>RecruSkill</h3>
           <p style={{
             color: '#666',
             fontSize: '14px',
@@ -172,19 +181,22 @@ function Home() {
 
         <div style={{
           flex: '1',
-          minWidth: '250px'
+          minWidth: '250px',
+          textAlign: 'center'
         }}>
           <h4 style={{
             margin: '0 0 15px 0',
             color: '#333',
             fontSize: '16px',
             fontWeight: '600',
-            fontFamily: "'Poppins', sans-serif"
+            fontFamily: "'Poppins', sans-serif",
+            textAlign: 'center'
           }}>Quick Links</h4>
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px'
+            gap: '8px',
+            alignItems: 'center'
           }}>
             <button
               onClick={() => navigate('/resume-matcher')}
@@ -195,7 +207,7 @@ function Home() {
                 fontSize: '14px',
                 padding: '4px 0',
                 cursor: 'pointer',
-                textAlign: 'left',
+                textAlign: 'center',
                 transition: 'color 0.3s'
               }}
               onMouseEnter={(e) => e.target.style.color = '#4CAF50'}
@@ -212,7 +224,7 @@ function Home() {
                 fontSize: '14px',
                 padding: '4px 0',
                 cursor: 'pointer',
-                textAlign: 'left',
+                textAlign: 'center',
                 transition: 'color 0.3s'
               }}
               onMouseEnter={(e) => e.target.style.color = '#4CAF50'}
@@ -229,7 +241,7 @@ function Home() {
                 fontSize: '14px',
                 padding: '4px 0',
                 cursor: 'pointer',
-                textAlign: 'left',
+                textAlign: 'center',
                 transition: 'color 0.3s'
               }}
               onMouseEnter={(e) => e.target.style.color = '#4CAF50'}
@@ -275,7 +287,7 @@ function Home() {
           fontSize: '14px',
           margin: '0'
         }}>
-          © {new Date().getFullYear()} Interview Kit. All rights reserved.
+          © {new Date().getFullYear()} RecruSkill. All rights reserved.
         </p>
       </div>
     </footer>
@@ -308,35 +320,121 @@ function Home() {
         <Header />
         <main style={{ 
           flex: 1,
-          padding: '110px 20px 40px',
+          paddingTop: '110px',
         }}>
           <div style={{
-            maxWidth: '1200px',
-            margin: '0 auto',
-            textAlign: 'center'
+            backgroundColor: 'white',
+            width: '100%',
+            padding: '40px 0',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
           }}>
-            <h1 style={{
-              fontSize: '48px',
-              fontWeight: '700',
-              color: '#333',
-              marginBottom: '20px',
-              fontFamily: "'Poppins', sans-serif"
-            }}>Interview Kit</h1>
-            
-            <p style={{
-              fontSize: '18px',
-              color: '#666',
-              marginBottom: '60px',
-              maxWidth: '600px',
-              margin: '0 auto 60px',
-              lineHeight: '1.6'
+            <div style={{
+              maxWidth: '1400px',
+              margin: '0 auto',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '60px',
+              padding: '0 40px',
+              minHeight: '500px'
             }}>
-              Enhance your interview preparation with our comprehensive toolkit
-            </p>
+              <div style={{
+                flex: '1',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                height: '100%',
+                maxWidth: '600px'
+              }}>
+                <h1 style={{
+                  fontSize: '64px',
+                  fontWeight: '700',
+                  color: '#333',
+                  marginBottom: '0',
+                  fontFamily: "'Montserrat', sans-serif",
+                  lineHeight: '1.2',
+                  textAlign: 'left'
+                }}>
+                  RecruSkill
+                </h1>
+                
+                <p style={{
+                  fontSize: '28px',
+                  color: '#666',
+                  marginTop: '4px',
+                  marginBottom: '40px',
+                  lineHeight: '1.6',
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontWeight: '600',
+                  textAlign: 'left',
+                  fontStyle: 'italic'
+                }}>
+                  Assessing Skills, Recruiting Potential!
+                </p>
 
+                <p style={{
+                  fontSize: '24px',
+                  color: '#666',
+                  marginBottom: '40px',
+                  lineHeight: '1.6',
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontWeight: '500',
+                  textAlign: 'left'
+                }}>
+                  Transform your interview preparation with our<br />
+                  AI-powered platform designed to help you succeed.
+                </p>
+
+                <button
+                  onClick={scrollToComponents}
+                  style={{
+                    padding: '16px 32px',
+                    backgroundColor: '#282828',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '18px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontFamily: "'Montserrat', sans-serif",
+                    transition: 'all 0.3s ease',
+                    alignSelf: 'flex-start'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#383838'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = '#282828'}
+                >
+                  Start Assessing
+                </button>
+              </div>
+
+              <div style={{
+                flex: '1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <img 
+                  src={illustration} 
+                  alt="Interview Illustration"
+                  style={{
+                    width: '100%',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    maxHeight: '100%'
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div id="components-section" style={{
+            maxWidth: '1200px',
+            margin: '60px auto 60px',
+            padding: '0 40px'
+          }}>
             <div style={{
               display: 'flex',
-              gap: '30px',
+              gap: '45px',
               justifyContent: 'center',
               flexWrap: 'wrap',
               padding: '20px'
@@ -365,15 +463,6 @@ function Home() {
                 color="#A1A1A1"
               />
             </div>
-
-            <p style={{ 
-              marginTop: '40px', 
-              color: '#999',
-              fontSize: '14px',
-              fontStyle: 'italic'
-            }}>
-              Note: Online Assessment feature is coming soon!
-            </p>
           </div>
         </main>
         <Footer />

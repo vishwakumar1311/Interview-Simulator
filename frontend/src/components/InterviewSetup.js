@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import backgroundImage from './InterviewSetup-BG.jpg';
 
 const ROLES = [
   // Engineering Roles
@@ -116,8 +117,18 @@ function InterviewSetup() {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-      padding: '20px'
+      background: `url(${backgroundImage})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundAttachment: 'fixed',
+      backgroundRepeat: 'no-repeat',
+      padding: '20px',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      overflowY: 'auto'
     }}>
       <div style={{
         backgroundColor: 'white',
@@ -125,7 +136,8 @@ function InterviewSetup() {
         padding: '40px',
         boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
         width: '100%',
-        maxWidth: '500px'
+        maxWidth: '500px',
+        margin: 'auto'
       }}>
         <h1 style={{
           color: '#2c3e50',
@@ -237,7 +249,7 @@ function InterviewSetup() {
             style={{
               width: '100%',
               padding: '14px',
-              backgroundColor: loading ? '#94a3b8' : '#3b82f6',
+              backgroundColor: loading ? '#94a3b8' : '#333333',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -247,7 +259,7 @@ function InterviewSetup() {
               transition: 'all 0.3s ease',
               transform: loading ? 'scale(1)' : 'scale(1)',
               hover: {
-                backgroundColor: '#2563eb',
+                backgroundColor: '#1a1a1a',
                 transform: 'scale(1.02)'
               }
             }}

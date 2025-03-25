@@ -353,9 +353,8 @@ Keep the tone encouraging and constructive, addressing the candidate directly wi
             flex: '1',
             maxWidth: '200px'
           }}
-          onMouseOver={(e) => e.target.style.backgroundColor = '#026355'}
-          onMouseOver={(e) => e.target.style.backgroundColor = '#d9d9d9'}
-          onMouseOut={(e) => e.target.style.backgroundColor = '#e6e6e6'}
+          onMouseOver={(e) => e.target.style.backgroundColor = '#039a80'}
+          onMouseOut={(e) => e.target.style.backgroundColor = '#027c68'}
         >
           Online Assessment
         </button>

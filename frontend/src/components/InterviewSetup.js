@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import backgroundImage from './InterviewSetup-BG.jpg';
 
@@ -60,15 +60,47 @@ function InterviewSetup() {
     customRole: ''
   });
   const [showCustomRole, setShowCustomRole] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const inputRef = useRef(null);
+  const dropdownRef = useRef(null);
 
-  const handleRoleChange = (e) => {
-    const selectedRole = e.target.value;
-    setShowCustomRole(selectedRole === 'Other');
+  const filteredRoles = ROLES.filter(role =>
+    role.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleRoleChange = (role) => {
+    setShowCustomRole(role === 'Other');
     setFormData({
       ...formData,
-      role: selectedRole,
-      customRole: selectedRole !== 'Other' ? '' : formData.customRole
+      role: role,
+      customRole: role !== 'Other' ? '' : formData.customRole
     });
+    setSearchTerm(role);
+    setShowDropdown(false);
+  };
+
+  const handleInputChange = (e) => {
+    setSearchTerm(e.target.value);
+    setShowDropdown(true);
   };
 
   const handleSubmit = async (e) => {
@@ -148,7 +180,7 @@ function InterviewSetup() {
         }}>Interview Setup</h1>
         
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '25px' }}>
+          <div style={{ marginBottom: '25px', position: 'relative' }} ref={dropdownRef}>
             <label style={{
               display: 'block',
               marginBottom: '8px',
@@ -158,10 +190,14 @@ function InterviewSetup() {
             }}>
               Select Role:
             </label>
-            <select
-              value={formData.role}
-              onChange={handleRoleChange}
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleInputChange}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="Select a role..."
               required
+              ref={inputRef}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -172,12 +208,37 @@ function InterviewSetup() {
                 transition: 'all 0.3s ease',
                 outline: 'none'
               }}
-            >
-              <option value="">Choose a role...</option>
-              {ROLES.map(role => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
+            />
+            {showDropdown && (
+              <ul style={{
+                position: 'absolute',
+                width: '100%',
+                maxHeight: '150px',
+                overflowY: 'auto',
+                backgroundColor: 'white',
+                border: '1px solid black',
+                borderRadius: '8px',
+                marginTop: '5px',
+                zIndex: 1000,
+                listStyleType: 'none',
+                padding: 0
+              }}>
+                {filteredRoles.map(role => (
+                  <li
+                    key={role}
+                    onClick={() => handleRoleChange(role)}
+                    style={{
+                      padding: '10px',
+                      cursor: 'pointer',
+                      backgroundColor: formData.role === role ? '#f0f0f0' : 'white',
+                      margin: '5px 0'
+                    }}
+                  >
+                    {role}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {showCustomRole && (

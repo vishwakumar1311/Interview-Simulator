@@ -8,10 +8,14 @@ import os
 import atexit
 from collections import defaultdict
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 import requests
 import PyPDF2
 from io import BytesIO
+from mysql.connector import connect
+from werkzeug.security import generate_password_hash, check_password_hash
+import jwt
+from functools import wraps
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -19,6 +23,7 @@ sys.stdout = open(os.devnull, 'w')
 
 app = Flask(__name__)
 CORS(app)
+app.config['SECRET_KEY'] = 'your-secret-key'  # Change this to a secure secret key
 
 mp_face_detection = mp.solutions.face_detection
 face_detection = mp_face_detection.FaceDetection(min_detection_confidence=0.5)
@@ -414,6 +419,98 @@ def extract_text():
         return jsonify({'text': text.strip()})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+def get_db_connection():
+    return connect(
+        host="localhost",
+        user="root",
+        password="root",
+        database="interview_simulator"
+    )
+
+# Authentication decorator
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'message': 'Token is missing'}), 401
+        
+        try:
+            token = token.split(' ')[1]  # Remove 'Bearer ' prefix
+            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+            db = get_db_connection()
+            cursor = db.cursor(dictionary=True)
+            cursor.execute('SELECT * FROM users WHERE id = %s', (data['user_id'],))
+            current_user = cursor.fetchone()
+            cursor.close()
+            db.close()
+        except:
+            return jsonify({'message': 'Token is invalid'}), 401
+
+        return f(current_user, *args, **kwargs)
+    return decorated
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    
+    if not all(k in data for k in ('username', 'email', 'password')):
+        return jsonify({'message': 'Missing required fields'}), 400
+    
+    hashed_password = generate_password_hash(data['password'])
+    
+    db = get_db_connection()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute(
+            'INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s)',
+            (data['username'], data['email'], hashed_password)
+        )
+        db.commit()
+        return jsonify({'message': 'User registered successfully'}), 201
+    except Exception as e:
+        return jsonify({'message': 'Username or email already exists'}), 409
+    finally:
+        cursor.close()
+        db.close()
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    
+    if not all(k in data for k in ('email', 'password')):
+        return jsonify({'message': 'Missing required fields'}), 400
+    
+    db = get_db_connection()
+    cursor = db.cursor(dictionary=True)
+    
+    try:
+        cursor.execute('SELECT * FROM users WHERE email = %s', (data['email'],))
+        user = cursor.fetchone()
+        
+        if user and check_password_hash(user['password_hash'], data['password']):
+            token = jwt.encode({
+                'user_id': user['id'],
+                'exp': datetime.utcnow() + timedelta(hours=24)
+            }, app.config['SECRET_KEY'])
+            
+            return jsonify({
+                'token': token,
+                'username': user['username']
+            })
+        
+        return jsonify({'message': 'Invalid credentials'}), 401
+    finally:
+        cursor.close()
+        db.close()
+
+# Protected route example
+@app.route('/protected', methods=['GET'])
+@token_required
+def protected(current_user):
+    return jsonify({'message': f'Hello {current_user["username"]}!'})
 
 if __name__ == '__main__':
     app.run(debug=True)

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import LoadingSpinner from './LoadingSpinner';
 import bgImage from './VideoFeed-BG.jpg';
 import interviewer from './interviewer.png';  // Adjust path as needed
+import { logout } from '../utils/auth';
 
 const globalStyle = `
   body {
@@ -203,17 +204,48 @@ function VideoFeed() {
     }
   };
 
+  const handleApiCall = async (url, options = {}) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        logout();
+        return;
+      }
+
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.status === 401) {
+        // Token is invalid or expired
+        logout();
+        return;
+      }
+
+      return response;
+    } catch (error) {
+      console.error('API call failed:', error);
+      throw error;
+    }
+  };
+
   // Function to start interview
   const handleStartInterview = async () => {
     try {
-      await fetch('http://localhost:5000/start_recording', { method: 'POST' });
-      setIsRecording(true);
-      setIsQuestionVisible(true);
+      const response = await handleApiCall('http://localhost:5000/start_recording', {
+        method: 'POST'
+      });
       
-      // Start with introduction
-      speakQuestion("Please introduce yourself in about 30 seconds. After your introduction, click 'Next' to begin the interview questions.");
-      
-      // Questions will start after introduction
+      if (response && response.ok) {
+        setIsRecording(true);
+        setIsQuestionVisible(true);
+        speakQuestion("Please introduce yourself in about 30 seconds...");
+      }
     } catch (error) {
       console.error('Error starting interview:', error);
     }

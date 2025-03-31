@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, {  useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from './LoadingSpinner';
 import bgImage from './Home-BG.jpg';
@@ -22,11 +22,15 @@ const globalStyle = `
 function Home() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = React.useState(true);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const username = localStorage.getItem('username');
+
+
 
   useEffect(() => {
     // Simulate initial loading
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    
+    const timer = setTimeout(() => setIsLoading(false), 1000);    
     // Stop camera when arriving at home page
     fetch('http://localhost:5000/stop_camera', {
       method: 'POST'
@@ -36,6 +40,20 @@ function Home() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
 
   const handleInterviewClick = async () => {
     try {
@@ -131,7 +149,7 @@ function Home() {
       zIndex: 1000,
       display: 'flex',
       alignItems: 'center',
-      justifyContent: 'flex-start',
+      justifyContent: 'space-between', // Changed to space-between
       padding: '0 40px'
     }}>
       <h2 style={{
@@ -141,6 +159,86 @@ function Home() {
         color: '#333',
         fontFamily: "'Montserrat', sans-serif"
       }}>RecruSkill</h2>
+  
+      {/* Profile Section - Now will appear on the right due to space-between */}
+      <div ref={dropdownRef}>
+        <button
+          onClick={() => setIsProfileOpen(!isProfileOpen)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            padding: '0.5rem 1rem',
+            backgroundColor: '#f5f5f5',
+            border: 'none',
+            borderRadius: '4px',
+            color: '#333',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => e.target.style.backgroundColor = '#ebebeb'}
+          onMouseLeave={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+        >
+          <div style={{
+            width: '24px',
+            height: '24px',
+            backgroundColor: '#282828',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '14px',
+            color: 'white'
+          }}>
+            {username ? username[0].toUpperCase() : 'U'}
+          </div>
+          <span>{username || 'User'}</span>
+        </button>
+  
+        {isProfileOpen && (
+          <div style={{
+            position: 'absolute',
+            top: '60px',
+            right: '0', // Changed to align with the right edge
+            backgroundColor: 'white',
+            borderRadius: '4px',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+            minWidth: '150px',
+            zIndex: 1001
+          }}>
+            <div style={{
+              padding: '0.75rem 1rem',
+              borderBottom: '1px solid #eef0f5'
+            }}>
+              <div style={{ 
+                fontWeight: '600',
+                color: '#333'
+              }}>{username || 'User'}</div>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.removeItem('token');
+                localStorage.removeItem('username');
+                navigate('/login');
+              }}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                textAlign: 'left',
+                backgroundColor: 'transparent',
+                border: 'none',
+                color: '#ff4444',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+            >
+              Logout
+            </button>
+          </div>
+        )}
+      </div>
     </header>
   );
 
@@ -308,6 +406,8 @@ function Home() {
     );
   }
 
+  
+
   return (
     <>
       <style>{globalStyle}</style>
@@ -468,6 +568,8 @@ function Home() {
         <Footer />
       </div>
     </>
+
+    
   );
 }
 

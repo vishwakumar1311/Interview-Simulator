@@ -331,7 +331,7 @@ function Home() {
               Interview Simulator
             </button>
             <button
-              onClick={() => navigate('/assessment')}
+              onClick={() => navigate('/assessment-setup')}
               style={{
                 background: 'none',
                 border: 'none',
@@ -558,7 +558,7 @@ function Home() {
               <FeatureCard
                 title="Online Assessment"
                 description="Test your technical skills with our comprehensive online assessment platform."
-                onClick={() => navigate('/assessment')}
+                onClick={() => navigate('/assessment-setup')}
                 icon="✍️"
                 color="#A1A1A1"
               />
@@ -568,8 +568,6 @@ function Home() {
         <Footer />
       </div>
     </>
-
-    
   );
 }
 

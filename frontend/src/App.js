@@ -5,8 +5,10 @@ import Home from "./components/Home";
 import AIResumeMatcher from "./components/AIResumeMatcher";
 import OnlineAssessment from "./components/OnlineAssessment";
 import InterviewSetup from './components/InterviewSetup';
+import AssessmentSetup from './components/AssessmentSetup';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
+import AptitudeTest from './components/AptitudeTest';
 
 function App() {
   // Check if user is authenticated
@@ -61,7 +63,23 @@ function App() {
           }
         />
         <Route path="/resume-matcher" element={<AIResumeMatcher />} />
-        <Route path="/assessment" element={<OnlineAssessment />} />
+        <Route
+          path="/assessment-setup"
+          element={
+            <ProtectedRoute>
+              <AssessmentSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/assessment"
+          element={
+            <ProtectedRoute>
+              <OnlineAssessment />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/aptitude" element={<AptitudeTest />} />
 
         {/* Catch all route - redirect to login if not authenticated, home if authenticated */}
         <Route 

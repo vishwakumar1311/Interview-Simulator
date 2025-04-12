@@ -20,6 +20,7 @@ import speech_recognition as sr
 import threading
 import traceback
 import re
+import json
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -58,6 +59,164 @@ current_question = None
 # Add Together API configuration at the top of the file
 TOGETHER_API_KEY = "06150d84db100f3ea0d4793266abeed1834b2b0ff3c1af53d650afab023bdef5"  # Replace with your actual Together API key
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
+
+# Aptitude test questions
+aptitude_questions = [
+    {
+        "id": 1,
+        "question": "If a train travels 360 kilometers in 4 hours, what is its average speed in kilometers per hour?",
+        "options": ["80 km/h", "90 km/h", "100 km/h", "120 km/h"],
+        "correct_answer": 1  # 90 km/h
+    },
+    {
+        "id": 2,
+        "question": "What comes next in the sequence: 2, 6, 12, 20, ?",
+        "options": ["24", "28", "30", "32"],
+        "correct_answer": 2  # 30
+    },
+    {
+        "id": 3,
+        "question": "If 3 workers can complete a task in 6 days, how many days will it take 2 workers to complete the same task?",
+        "options": ["7 days", "8 days", "9 days", "10 days"],
+        "correct_answer": 2  # 9 days
+    },
+    {
+        "id": 4,
+        "question": "What percentage of 80 is 20?",
+        "options": ["15%", "20%", "25%", "30%"],
+        "correct_answer": 2  # 25%
+    },
+    {
+        "id": 5,
+        "question": "If a rectangle has a length of 12 cm and a width of 8 cm, what is its area?",
+        "options": ["76 cm²", "86 cm²", "96 cm²", "106 cm²"],
+        "correct_answer": 2  # 96 cm²
+    }
+]
+
+# Predefined aptitude questions
+APTITUDE_QUESTIONS = [
+    {
+        "id": 1,
+        "question": "If a train travels 300 km in 5 hours, what is its average speed?",
+        "options": ["50 km/h", "60 km/h", "70 km/h", "80 km/h"],
+        "correct_answer": 1
+    },
+    {
+        "id": 2,
+        "question": "What is the next number in the sequence: 2, 4, 8, 16, ...?",
+        "options": ["24", "32", "30", "28"],
+        "correct_answer": 1
+    },
+    {
+        "id": 3,
+        "question": "If all cats are mammals and all mammals are animals, then:",
+        "options": ["All cats are animals", "Some cats are not animals", "No cats are animals", "None of the above"],
+        "correct_answer": 0
+    },
+    {
+        "id": 4,
+        "question": "What is 25% of 200?",
+        "options": ["25", "50", "75", "100"],
+        "correct_answer": 1
+    },
+    {
+        "id": 5,
+        "question": "If a square has a perimeter of 20 cm, what is its area?",
+        "options": ["20 cm²", "25 cm²", "30 cm²", "35 cm²"],
+        "correct_answer": 1
+    },
+    {
+        "id": 6,
+        "question": "Which word is the odd one out?",
+        "options": ["Apple", "Banana", "Carrot", "Orange"],
+        "correct_answer": 2
+    },
+    {
+        "id": 7,
+        "question": "If 3x + 7 = 22, what is the value of x?",
+        "options": ["3", "4", "5", "6"],
+        "correct_answer": 2
+    },
+    {
+        "id": 8,
+        "question": "What is the missing number: 5, 10, 15, 20, __, 30?",
+        "options": ["22", "24", "25", "28"],
+        "correct_answer": 2
+    },
+    {
+        "id": 9,
+        "question": "If a shirt costs $40 and is on sale for 20% off, what is the sale price?",
+        "options": ["$28", "$30", "$32", "$36"],
+        "correct_answer": 2
+    },
+    {
+        "id": 10,
+        "question": "Which shape has the most sides?",
+        "options": ["Triangle", "Square", "Pentagon", "Hexagon"],
+        "correct_answer": 3
+    },
+    {
+        "id": 11,
+        "question": "What is the sum of the first 10 natural numbers?",
+        "options": ["45", "50", "55", "60"],
+        "correct_answer": 2
+    },
+    {
+        "id": 12,
+        "question": "If a rectangle has length 8 and width 6, what is its area?",
+        "options": ["42", "44", "46", "48"],
+        "correct_answer": 3
+    },
+    {
+        "id": 13,
+        "question": "Which number is a prime number?",
+        "options": ["4", "6", "7", "8"],
+        "correct_answer": 2
+    },
+    {
+        "id": 14,
+        "question": "What is the next letter in the sequence: A, C, E, G, ...?",
+        "options": ["H", "I", "J", "K"],
+        "correct_answer": 1
+    },
+    {
+        "id": 15,
+        "question": "If 2x + 3 = 11, what is the value of x?",
+        "options": ["3", "4", "5", "6"],
+        "correct_answer": 1
+    },
+    {
+        "id": 16,
+        "question": "What is the average of 4, 6, 8, and 10?",
+        "options": ["6", "7", "8", "9"],
+        "correct_answer": 1
+    },
+    {
+        "id": 17,
+        "question": "Which word is spelled correctly?",
+        "options": ["Accomodate", "Accommodate", "Acommodate", "Acomodate"],
+        "correct_answer": 1
+    },
+    {
+        "id": 18,
+        "question": "If a triangle has angles of 30° and 60°, what is the third angle?",
+        "options": ["60°", "70°", "80°", "90°"],
+        "correct_answer": 3
+    },
+    {
+        "id": 19,
+        "question": "What is the square root of 144?",
+        "options": ["10", "11", "12", "13"],
+        "correct_answer": 2
+    },
+    {
+        "id": 20,
+        "question": "If a book costs $15 and a pen costs $5, how much do 2 books and 3 pens cost?",
+        "options": ["$35", "$40", "$45", "$50"],
+        "correct_answer": 2
+    }
+]
 
 def init_camera():
     global cap
@@ -744,6 +903,30 @@ def evaluate_interview():
         return jsonify({
             "error": "Evaluation failed",
             "message": str(e)
+        }), 500
+
+@app.route('/generate_aptitude_questions', methods=['GET'])
+def generate_aptitude_questions():
+    """
+    Generate a set of aptitude test questions.
+    Returns a JSON object containing questions, options, and correct answers.
+    """
+    try:
+        # Create a copy of questions with correct answers
+        questions_with_answers = []
+        for question in APTITUDE_QUESTIONS:
+            question_copy = question.copy()
+            question_copy['correct_answer_text'] = question['options'][question['correct_answer']]
+            questions_with_answers.append(question_copy)
+            
+        return jsonify({
+            "success": True,
+            "questions": questions_with_answers
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "error": str(e)
         }), 500
 
 if __name__ == '__main__':

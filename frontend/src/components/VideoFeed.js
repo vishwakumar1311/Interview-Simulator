@@ -49,6 +49,10 @@ function VideoFeed() {
   const [timer, setTimer] = useState(0);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [interviewStarted, setInterviewStarted] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
+  const [interviewState, setInterviewState] = useState('idle');
+  const [interviewEvaluation, setInterviewEvaluation] = useState(null);
+  const [isProcessingInterview, setIsProcessingInterview] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -271,29 +275,108 @@ function VideoFeed() {
 
   // Modify handleStopInterview
   const handleStopInterview = async () => {
+    const maxRetries = 3;
+    let retryCount = 0;
+    
+    setIsProcessingInterview(true); // Start loading state
+    
+    const stopCamera = async () => {
+      try {
+        const response = await fetch('http://localhost:5000/stop_camera', {
+          method: 'POST',
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to stop camera');
+        }
+        
+        return await response.json();
+      } catch (error) {
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`Retry attempt ${retryCount} of ${maxRetries}...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return await stopCamera();
+        }
+        throw error;
+      }
+    };
+    
     try {
-      if (isRecording) {
-        await stopRecording();
+      // First stop the camera with retries
+      console.log('Stopping camera...');
+      const stopData = await stopCamera();
+      console.log('Camera stopped:', stopData);
+      
+      // Get all interview responses
+      console.log('Getting interview responses...');
+      const responsesResponse = await fetch('http://localhost:5000/get_interview_responses');
+      if (!responsesResponse.ok) {
+        throw new Error('Failed to get interview responses');
       }
       
-      const response = await fetch('http://localhost:5000/stop_camera', {
-        method: 'POST'
+      const responsesData = await responsesResponse.json();
+      console.log('Interview responses:', responsesData.responses);
+      
+      if (!responsesData.responses || responsesData.responses.length === 0) {
+        throw new Error('No interview responses recorded');
+      }
+      
+      // Send responses for evaluation
+      console.log('Evaluating interview...');
+      const evaluationResponse = await fetch('http://localhost:5000/evaluate_interview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          responses: responsesData.responses
+        }),
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        setEmotionSummary(data.emotion_summary);
-        setShowSummary(true);
-        setIsRecording(false);
-        setInterviewStarted(false);
-        
-        // Get all interview responses
-        const responsesResponse = await fetch('http://localhost:5000/get_interview_responses');
-        const responsesData = await responsesResponse.json();
-        console.log('Final interview responses:', responsesData.responses);
+      if (!evaluationResponse.ok) {
+        const errorData = await evaluationResponse.json();
+        throw new Error(errorData.message || 'Failed to evaluate interview');
       }
+      
+      const evaluationData = await evaluationResponse.json();
+      console.log('Interview score:', evaluationData.score);
+      
+      // Update state with score
+      setEmotionSummary({
+        score: evaluationData.score,
+        emotion_summary: stopData.emotion_summary
+      });
+      
+      // Clear interview responses
+      await fetch('http://localhost:5000/clear_interview_responses', {
+        method: 'POST',
+      });
+      
+      // Reset interview state
+      setInterviewState('idle');
+      setCurrentQuestionIndex(0);
+      setShowQuestions(false);
+      setInterviewStarted(false);
+      setShowSummary(true);
+      
     } catch (error) {
       console.error('Error stopping interview:', error);
+      
+      const errorMessage = error.message === 'No interview responses recorded' 
+        ? 'No responses were recorded during the interview. Please try again and ensure your answers are being recorded.'
+        : `There was an error stopping the interview. ${error.message}\n\nPlease try again or refresh the page if the issue persists.`;
+      
+      alert(errorMessage);
+      
+      try {
+        await fetch('http://localhost:5000/stop_camera', { method: 'POST' });
+      } catch (cleanupError) {
+        console.error('Error during cleanup:', cleanupError);
+      }
+    } finally {
+      setIsProcessingInterview(false); // End loading state
     }
   };
 
@@ -655,57 +738,111 @@ function VideoFeed() {
                 fontSize: '24px'
               }}>Interview Analysis Report</h2>
               
-              {emotionSummary && (
-                <>
+              {showSummary && emotionSummary && (
+                <div className="interview-summary" style={{
+                  padding: '20px',
+                  backgroundColor: '#2d2d2d',
+                  borderRadius: '10px',
+                  margin: '20px'
+                }}>
+                  {/* Score Section */}
                   <div style={{
-                    marginBottom: '30px',
-                    padding: '20px',
-                    backgroundColor: '#333',
-                    borderRadius: '10px'
+                    textAlign: 'center',
+                    marginBottom: '40px'
                   }}>
-                    <h3 style={{color: '#fff', marginBottom: '15px'}}>
-                      Primary Emotion: {emotionSummary.dominant_emotion}
-                    </h3>
-                    <p style={{color: '#ddd'}}>
-                      Total Duration: {(emotionSummary.total_frames * 3 / 60).toFixed(1)} minutes
-                    </p>
-                    <p style={{color: '#ddd'}}>
-                      Questions Attempted: {attemptedQuestions} out of {questions.length + 1}
-                    </p>
+                    <h2 style={{ color: '#fff', marginBottom: '20px' }}>Interview Score</h2>
+                    <div style={{
+                      fontSize: '72px',
+                      fontWeight: 'bold',
+                      color: '#4CAF50',
+                      margin: '20px 0'
+                    }}>
+                      {emotionSummary.score}/100
+                    </div>
+                    <div style={{
+                      width: '200px',
+                      height: '200px',
+                      margin: '0 auto',
+                      borderRadius: '50%',
+                      backgroundColor: '#333',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      border: '10px solid #4CAF50'
+                    }}>
+                      <span style={{
+                        fontSize: '48px',
+                        color: '#fff'
+                      }}>
+                        {emotionSummary.score}%
+                      </span>
+                    </div>
                   </div>
 
-                  <div style={{marginTop: '30px'}}>
-                    <h3 style={{color: '#fff', marginBottom: '20px'}}>Emotional Distribution</h3>
-                    {Object.entries(emotionSummary.summary).map(([emotion, percentage]) => (
-                      <div key={emotion} style={{marginBottom: '20px'}}>
-                        <div style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          marginBottom: '8px'
-                        }}>
-                          <span style={{
-                            color: '#ddd',
-                            textTransform: 'capitalize'
-                          }}>{emotion}</span>
-                          <span style={{color: '#ddd'}}>{percentage.toFixed(1)}%</span>
-                        </div>
-                        <div style={{
-                          height: '10px',
-                          backgroundColor: '#444',
-                          borderRadius: '5px',
-                          overflow: 'hidden'
-                        }}>
-                          <div style={{
-                            width: `${percentage}%`,
-                            height: '100%',
-                            backgroundColor: '#3498db',
-                            borderRadius: '5px'
-                          }} />
-                        </div>
+                  {/* Emotion Analysis Section */}
+                  {emotionSummary.emotion_summary && emotionSummary.emotion_summary.summary && (
+                    <div style={{
+                      backgroundColor: '#333',
+                      padding: '20px',
+                      borderRadius: '10px',
+                      marginTop: '20px'
+                    }}>
+                      <h3 style={{ color: '#fff', marginBottom: '20px' }}>Emotion Analysis</h3>
+                      <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                        gap: '15px'
+                      }}>
+                        {Object.entries(emotionSummary.emotion_summary.summary).map(([emotion, percentage]) => (
+                          <div key={emotion} style={{
+                            backgroundColor: '#2d2d2d',
+                            padding: '15px',
+                            borderRadius: '8px',
+                            textAlign: 'center'
+                          }}>
+                            <div style={{ color: '#fff', marginBottom: '5px', textTransform: 'capitalize' }}>
+                              {emotion}
+                            </div>
+                            <div style={{
+                              height: '8px',
+                              backgroundColor: '#444',
+                              borderRadius: '4px',
+                              overflow: 'hidden'
+                            }}>
+                              <div style={{
+                                width: `${percentage}%`,
+                                height: '100%',
+                                backgroundColor: '#4CAF50',
+                                transition: 'width 1s ease-in-out'
+                              }} />
+                            </div>
+                            <div style={{ color: '#4CAF50', marginTop: '5px' }}>
+                              {percentage.toFixed(1)}%
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </>
+                      {emotionSummary.emotion_summary.dominant_emotion && (
+                        <div style={{
+                          marginTop: '20px',
+                          textAlign: 'center',
+                          padding: '15px',
+                          backgroundColor: '#2d2d2d',
+                          borderRadius: '8px'
+                        }}>
+                          <span style={{ color: '#888' }}>Dominant Emotion: </span>
+                          <span style={{ 
+                            color: '#4CAF50',
+                            fontWeight: 'bold',
+                            textTransform: 'capitalize'
+                          }}>
+                            {emotionSummary.emotion_summary.dominant_emotion}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
 
               <button
@@ -726,12 +863,55 @@ function VideoFeed() {
           </div>
         )}
       </div>
+      {isProcessingInterview && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '5px solid #f3f3f3',
+            borderTop: '5px solid #4CAF50',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '20px'
+          }} />
+          <div style={{
+            color: '#fff',
+            fontSize: '24px',
+            fontWeight: 'bold',
+            marginBottom: '10px'
+          }}>
+            Compiling Your Results
+          </div>
+          <div style={{
+            color: '#4CAF50',
+            fontSize: '16px'
+          }}>
+            Please wait while we analyze your interview...
+          </div>
+        </div>
+      )}
       <style>
         {`
           @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
             100% { opacity: 1; }
+          }
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
           }
         `}
       </style>

@@ -18,6 +18,8 @@ import jwt
 from functools import wraps
 import speech_recognition as sr
 import threading
+import traceback
+import re
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -52,6 +54,10 @@ current_response = ""
 # Add global variables for storing interview responses
 interview_responses = []
 current_question = None
+
+# Add Together API configuration at the top of the file
+TOGETHER_API_KEY = "06150d84db100f3ea0d4793266abeed1834b2b0ff3c1af53d650afab023bdef5"  # Replace with your actual Together API key
+TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
 def init_camera():
     global cap
@@ -260,24 +266,37 @@ def start_recording():
 
 @app.route('/stop_camera', methods=['POST'])
 def stop_camera():
-    global cap, emotion_counts, total_emotions, video_writer, recording
+    global cap, emotion_counts, total_emotions, video_writer, recording, is_listening
     try:
-        print("Stopping recording...")
-        print(f"Current emotion counts: {emotion_counts}")
-        print(f"Total emotions: {total_emotions}")
+        print("Stopping recording and cleaning up resources...")
         
+        # First stop listening if active
+        is_listening = False
+        time.sleep(0.5)  # Give time for listening thread to stop
+        
+        # Stop recording first
         recording = False
+        time.sleep(0.5)  # Give time for recording to stop
         
+        # Release video writer
         if video_writer is not None:
-            video_writer.release()
-            video_writer = None
-            print("Video writer released")
-            
+            try:
+                video_writer.release()
+                video_writer = None
+                print("Video writer released")
+            except Exception as e:
+                print(f"Error releasing video writer: {str(e)}")
+        
+        # Release camera
         if cap is not None:
-            cap.release()
-            cap = None
-            cv2.destroyAllWindows()
-            print("Camera released")
+            try:
+                cap.release()
+                cap = None
+                print("Camera released")
+            except Exception as e:
+                print(f"Error releasing camera: {str(e)}")
+        
+        cv2.destroyAllWindows()
         
         # Get the summary before resetting
         summary = {
@@ -289,28 +308,39 @@ def stop_camera():
             "total_frames": total_emotions
         }
         
-        print(f"Generated summary: {summary}")
-        
         # Reset the counters
         emotion_counts = defaultdict(int)
         total_emotions = 0
         
+        print("Cleanup completed successfully")
         return jsonify({
             "status": "Recording stopped successfully",
             "emotion_summary": summary
         })
+        
     except Exception as e:
         print(f"Error in stop_camera: {str(e)}")
+        print("Stack trace:", traceback.format_exc())
         # Ensure cleanup even on error
         recording = False
+        is_listening = False
         if video_writer is not None:
-            video_writer.release()
-            video_writer = None
+            try:
+                video_writer.release()
+                video_writer = None
+            except:
+                pass
         if cap is not None:
-            cap.release()
-            cap = None
+            try:
+                cap.release()
+                cap = None
+            except:
+                pass
         cv2.destroyAllWindows()
-        return jsonify({"error": f"Failed to stop camera: {str(e)}"}), 500
+        return jsonify({
+            "error": "Failed to stop camera",
+            "message": str(e)
+        }), 500
 
 def cleanup():
     global cap, emotion_counts, total_emotions, video_writer, recording
@@ -331,11 +361,6 @@ def cleanup():
 
 # Register cleanup function to run on exit
 atexit.register(cleanup)
-
-import re
-
-TOGETHER_API_KEY = "06150d84db100f3ea0d4793266abeed1834b2b0ff3c1af53d650afab023bdef5"
-TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
 @app.route('/generate_questions', methods=['POST'])
 def generate_questions():
@@ -619,6 +644,107 @@ def clear_interview_responses():
     global interview_responses
     interview_responses = []
     return jsonify({"status": "Responses cleared"})
+
+@app.route('/evaluate_interview', methods=['POST'])
+def evaluate_interview():
+    try:
+        # Check if API key is configured
+        if not TOGETHER_API_KEY or TOGETHER_API_KEY == "your-api-key-here":
+            print("Error: Together API key not configured")
+            return jsonify({
+                "error": "API configuration error",
+                "message": "Together API key not configured. Please set up your API key."
+            }), 500
+
+        # Get the interview responses from the request
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+            
+        responses = data.get('responses', [])
+        
+        if not responses:
+            return jsonify({"error": "No interview responses provided"}), 400
+        
+        print(f"Received {len(responses)} responses for evaluation")
+        
+        # Format the responses for the API
+        formatted_responses = "\n\n".join([
+            f"Question {i+1}: {resp.get('question', 'No question')}\nAnswer: {resp.get('response', 'No response')}"
+            for i, resp in enumerate(responses)
+        ])
+        
+        # Prepare the prompt for evaluation
+        evaluation_prompt = f"""Please evaluate the following interview responses and provide a single score out of 100.
+        Consider:
+        1. Technical accuracy (if applicable)
+        2. Communication skills
+        3. Problem-solving approach
+        4. Clarity of responses
+        
+        Interview Responses:
+        {formatted_responses}
+        
+        Please provide ONLY a number between 0 and 100 as your response."""
+        
+        headers = {
+            "Authorization": f"Bearer {TOGETHER_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "messages": [
+                {"role": "system", "content": "You are an expert technical interviewer and evaluator."},
+                {"role": "user", "content": evaluation_prompt}
+            ]
+        }
+        
+        print("Sending evaluation request to Together API...")
+        try:
+            response = requests.post(TOGETHER_API_URL, headers=headers, json=payload)
+            response.raise_for_status()
+            
+            result = response.json()
+            if "choices" not in result or not result["choices"]:
+                raise ValueError("Invalid response format from API")
+                
+            score_text = result["choices"][0]["message"]["content"]
+            # Extract the first number from the response
+            score_match = re.search(r'\d+', score_text)
+            if not score_match:
+                raise ValueError("No score found in API response")
+                
+            score = int(score_match.group())
+            
+            # Ensure score is between 0 and 100
+            score = max(0, min(100, score))
+            
+            return jsonify({
+                "status": "success",
+                "score": score
+            })
+            
+        except requests.exceptions.RequestException as e:
+            print(f"API Request Error: {str(e)}")
+            return jsonify({
+                "error": "API request failed",
+                "message": str(e)
+            }), 500
+        except ValueError as e:
+            print(f"API Response Error: {str(e)}")
+            return jsonify({
+                "error": "Invalid API response",
+                "message": str(e)
+            }), 500
+            
+    except Exception as e:
+        print(f"Error in evaluation: {str(e)}")
+        print("Stack trace:", traceback.format_exc())
+        return jsonify({
+            "error": "Evaluation failed",
+            "message": str(e)
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

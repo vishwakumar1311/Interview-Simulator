@@ -16,6 +16,8 @@ from mysql.connector import connect
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from functools import wraps
+import speech_recognition as sr
+import threading
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
@@ -41,6 +43,15 @@ output_folder = "recorded_videos"
 # Create output folder if it doesn't exist
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
+
+# Add global variable for speech recognition
+recognizer = sr.Recognizer()
+is_listening = False
+current_response = ""
+
+# Add global variables for storing interview responses
+interview_responses = []
+current_question = None
 
 def init_camera():
     global cap
@@ -511,6 +522,103 @@ def login():
 @token_required
 def protected(current_user):
     return jsonify({'message': f'Hello {current_user["username"]}!'})
+
+def listen_for_speech():
+    global is_listening, current_response, current_question
+    with sr.Microphone() as source:
+        print("Listening for speech...")
+        # Adjust for ambient noise with longer duration for better calibration
+        recognizer.adjust_for_ambient_noise(source, duration=2)
+        
+        # Initialize empty list to store all responses
+        all_responses = []
+        
+        while is_listening:
+            try:
+                # Use non-blocking listen with longer timeout
+                # Set phrase_time_limit to None to allow unlimited recording
+                audio = recognizer.listen(source, timeout=5, phrase_time_limit=None)
+                
+                # Use Google's speech recognition with better settings
+                text = recognizer.recognize_google(
+                    audio,
+                    language="en-US",
+                    show_all=False
+                )
+                
+                if text:
+                    # Clean up the text
+                    text = text.strip()
+                    if text:
+                        all_responses.append(text)
+                        current_response = " ".join(all_responses)  # Join all responses
+                        print(f"User said: {text}")
+                        print(f"Full response so far: {current_response}")
+                
+            except sr.WaitTimeoutError:
+                continue
+            except sr.UnknownValueError:
+                print("Could not understand audio")
+            except sr.RequestError as e:
+                print(f"Could not request results; {e}")
+            except Exception as e:
+                print(f"Error in speech recognition: {str(e)}")
+
+@app.route('/start_listening', methods=['POST'])
+def start_listening():
+    global is_listening, current_response, current_question
+    if not is_listening:
+        is_listening = True
+        current_response = ""  # Reset response when starting new recording
+        
+        # Get the current question from the request
+        data = request.get_json()
+        if data and 'question' in data:
+            current_question = data['question']
+            print(f"Starting recording for question: {current_question}")
+        
+        threading.Thread(target=listen_for_speech, daemon=True).start()
+        return jsonify({"status": "Started listening"})
+    return jsonify({"status": "Already listening"})
+
+@app.route('/stop_listening', methods=['POST'])
+def stop_listening():
+    global is_listening, current_response, current_question, interview_responses
+    is_listening = False
+    
+    # Store the response with its question
+    if current_question and current_response:
+        response_data = {
+            "question": current_question,
+            "response": current_response,
+            "timestamp": datetime.now().isoformat()
+        }
+        interview_responses.append(response_data)
+        print(f"Stored response for question: {current_question}")
+        print(f"Current interview responses: {interview_responses}")
+    
+    response = current_response
+    current_response = ""
+    current_question = None
+    
+    return jsonify({
+        "status": "Stopped listening",
+        "response": response,
+        "interview_responses": interview_responses
+    })
+
+@app.route('/get_interview_responses', methods=['GET'])
+def get_interview_responses():
+    return jsonify({
+        "status": "success",
+        "responses": interview_responses
+    })
+
+@app.route('/clear_interview_responses', methods=['POST'])
+def clear_interview_responses():
+    global interview_responses
+    interview_responses = []
+    return jsonify({"status": "Responses cleared"})
 
 if __name__ == '__main__':
     app.run(debug=True)

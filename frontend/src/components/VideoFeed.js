@@ -39,6 +39,7 @@ function VideoFeed() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isQuestionVisible, setIsQuestionVisible] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [userResponse, setUserResponse] = useState("");
   const videoRef = useRef();
   const navigate = useNavigate();
   const speechSynthesis = window.speechSynthesis;
@@ -47,6 +48,7 @@ function VideoFeed() {
   const [attemptedQuestions, setAttemptedQuestions] = useState(0);
   const [timer, setTimer] = useState(0);
   const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [interviewStarted, setInterviewStarted] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -161,17 +163,60 @@ function VideoFeed() {
     utterance.pitch = 1;
     utterance.volume = 1;
     
-    // Add onend handler to stop animation when speech ends
-    utterance.onend = () => {
+    // Add onend handler to start recording when speech ends
+    utterance.onend = async () => {
       setIsSpeaking(false);
+      // Start recording with current question
+      await startRecording(questionText);
     };
     
     speechSynthesis.speak(utterance);
   };
 
-  // Function to handle next question
-  const handleNextQuestion = () => {
+  // Add speech-to-text functions
+  const startRecording = async (question) => {
+    try {
+      const response = await fetch('http://localhost:5000/start_listening', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ question })
+      });
+      if (response.ok) {
+        setIsRecording(true);
+        console.log('Started recording user response...');
+      }
+    } catch (error) {
+      console.error('Error starting recording:', error);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/stop_listening', {
+        method: 'POST'
+      });
+      const data = await response.json();
+      setIsRecording(false);
+      console.log('User response:', data.response);
+      console.log('All interview responses:', data.interview_responses);
+      return data.response;
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      return "";
+    }
+  };
+
+  // Modify handleNextQuestion to include speech recording
+  const handleNextQuestion = async () => {
     speechSynthesis.cancel();
+    
+    // Stop recording for current question if it was active
+    if (isRecording) {
+      const response = await stopRecording();
+      console.log('User response for previous question:', response);
+    }
     
     if (isIntroduction) {
       setIsIntroduction(false);
@@ -204,68 +249,51 @@ function VideoFeed() {
     }
   };
 
-  const handleApiCall = async (url, options = {}) => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        logout();
-        return;
-      }
-
-      const response = await fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.status === 401) {
-        // Token is invalid or expired
-        logout();
-        return;
-      }
-
-      return response;
-    } catch (error) {
-      console.error('API call failed:', error);
-      throw error;
-    }
-  };
-
-  // Function to start interview
+  // Modify handleStartInterview
   const handleStartInterview = async () => {
     try {
-      const response = await handleApiCall('http://localhost:5000/start_recording', {
+      const response = await fetch('http://localhost:5000/start_recording', {
         method: 'POST'
       });
       
-      if (response && response.ok) {
+      if (response.ok) {
         setIsRecording(true);
-        setIsQuestionVisible(true);
-        speakQuestion("Please introduce yourself in about 30 seconds...");
+        setInterviewStarted(true);
+        setTimer(0);
+        
+        // Start introduction
+        speakQuestion("Welcome to your interview. I'll be asking you a series of questions. Please answer them to the best of your ability.");
       }
     } catch (error) {
       console.error('Error starting interview:', error);
     }
   };
 
+  // Modify handleStopInterview
   const handleStopInterview = async () => {
     try {
+      if (isRecording) {
+        await stopRecording();
+      }
+      
       const response = await fetch('http://localhost:5000/stop_camera', {
         method: 'POST'
       });
-      const data = await response.json();
       
-      if (data.emotion_summary) {
+      if (response.ok) {
+        const data = await response.json();
         setEmotionSummary(data.emotion_summary);
-        setShowSummary(true);  // This will switch to the summary view
+        setShowSummary(true);
         setIsRecording(false);
+        setInterviewStarted(false);
+        
+        // Get all interview responses
+        const responsesResponse = await fetch('http://localhost:5000/get_interview_responses');
+        const responsesData = await responsesResponse.json();
+        console.log('Final interview responses:', responsesData.responses);
       }
     } catch (error) {
-      console.error('Error stopping camera:', error);
-      navigate('/');
+      console.error('Error stopping interview:', error);
     }
   };
 
@@ -411,7 +439,7 @@ function VideoFeed() {
               backgroundColor: '#2d2d2d',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               padding: '0 20px'
             }}>
               <div style={{
@@ -423,6 +451,22 @@ function VideoFeed() {
               }}>
                 {formatTime(timer)}
               </div>
+              {isRecording && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <div style={{
+                    width: '10px',
+                    height: '10px',
+                    backgroundColor: 'red',
+                    borderRadius: '50%',
+                    animation: 'pulse 1s infinite'
+                  }} />
+                  <span>Recording...</span>
+                </div>
+              )}
             </div>
 
             {/* Main content area */}
@@ -512,31 +556,27 @@ function VideoFeed() {
                 flexDirection: 'column'
               }}>
                 {/* Question display */}
-                {isQuestionVisible && questions.length > 0 && (
-                  <div style={{
-                    flex: 1,
-                    marginBottom: '20px'
+                <div style={{
+                  flex: 1,
+                  marginBottom: '20px'
+                }}>
+                  <h3 style={{
+                    color: '#fff',
+                    marginBottom: '10px',
+                    fontSize: '16px'
                   }}>
-                    <h3 style={{
-                      color: '#fff',
-                      marginBottom: '10px',
-                      fontSize: '16px'
-                    }}>
-                      {isIntroduction ? "Introduction" : `Question ${currentQuestionIndex + 1}/${questions.length}`}
-                    </h3>
-                    <p style={{
-                      color: '#ddd',
-                      fontSize: '14px',
-                      lineHeight: '1.4'
-                    }}>
-                      {isIntroduction 
-                        ? "Please introduce yourself in about 30 seconds."
-                        : (typeof questions[currentQuestionIndex] === 'string' 
-                            ? questions[currentQuestionIndex] 
-                            : questions[currentQuestionIndex]?.question || "Loading...")}
-                    </p>
-                  </div>
-                )}
+                    {isIntroduction ? "Introduction" : `Question ${currentQuestionIndex + 1}/${questions.length}`}
+                  </h3>
+                  <p style={{
+                    color: '#ddd',
+                    fontSize: '14px',
+                    lineHeight: '1.4'
+                  }}>
+                    {isIntroduction 
+                      ? "Welcome to your interview. I'll be asking you a series of questions. Please answer them to the best of your ability."
+                      : (questions[currentQuestionIndex]?.question || questions[currentQuestionIndex] || "Loading...")}
+                  </p>
+                </div>
 
                 {/* Control buttons */}
                 <div style={{
@@ -545,7 +585,7 @@ function VideoFeed() {
                   gap: '10px',
                   marginTop: 'auto'
                 }}>
-                  {!isRecording ? (
+                  {!interviewStarted ? (
                     <button
                       onClick={handleStartInterview}
                       style={{
@@ -686,6 +726,15 @@ function VideoFeed() {
           </div>
         )}
       </div>
+      <style>
+        {`
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+          }
+        `}
+      </style>
     </>
   );
 }

@@ -1,3 +1,5 @@
+##NOTE: Always run pip install -r backend/requirements.txt before running the project after taking changes
+
 CREATE DATABASE interview_simulator;
 USE interview_simulator;
 

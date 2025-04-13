@@ -67,8 +67,8 @@ function Login() {
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '1rem' }}>
             <input
-              type="email"
-              placeholder="Email"
+              type="text"
+              placeholder="Username"
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
               required

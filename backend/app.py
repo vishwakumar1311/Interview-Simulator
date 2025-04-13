@@ -678,28 +678,19 @@ def login():
     if not all(k in data for k in ('email', 'password')):
         return jsonify({'message': 'Missing required fields'}), 400
     
-    db = get_db_connection()
-    cursor = db.cursor(dictionary=True)
+    # Check for admin credentials
+    if data['email'] == 'admin' and data['password'] == 'admin@123':
+        token = jwt.encode({
+            'user_id': 1,  # Using a fixed user_id for admin
+            'exp': datetime.utcnow() + timedelta(hours=24)
+        }, app.config['SECRET_KEY'])
+        
+        return jsonify({
+            'token': token,
+            'username': 'admin'
+        })
     
-    try:
-        cursor.execute('SELECT * FROM users WHERE email = %s', (data['email'],))
-        user = cursor.fetchone()
-        
-        if user and check_password_hash(user['password_hash'], data['password']):
-            token = jwt.encode({
-                'user_id': user['id'],
-                'exp': datetime.utcnow() + timedelta(hours=24)
-            }, app.config['SECRET_KEY'])
-            
-            return jsonify({
-                'token': token,
-                'username': user['username']
-            })
-        
-        return jsonify({'message': 'Invalid credentials'}), 401
-    finally:
-        cursor.close()
-        db.close()
+    return jsonify({'message': 'Invalid credentials'}), 401
 
 # Protected route example
 @app.route('/protected', methods=['GET'])

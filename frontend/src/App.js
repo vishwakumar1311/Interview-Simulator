@@ -9,6 +9,8 @@ import AssessmentSetup from './components/AssessmentSetup';
 import Login from './components/Auth/Login';
 import Register from './components/Auth/Register';
 import AptitudeTest from './components/AptitudeTest';
+import NoCopyPaste from './components/NoCopyPaste';
+import DeviceSetup from './components/DeviceSetup';
 
 function App() {
   // Check if user is authenticated
@@ -26,6 +28,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <NoCopyPaste />
       <Routes>
         {/* Public Routes */}
         <Route 
@@ -51,6 +54,14 @@ function App() {
           element={
             <ProtectedRoute>
               <InterviewSetup />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/device-setup"
+          element={
+            <ProtectedRoute>
+              <DeviceSetup />
             </ProtectedRoute>
           }
         />

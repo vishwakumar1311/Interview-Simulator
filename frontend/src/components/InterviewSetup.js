@@ -134,7 +134,7 @@ function InterviewSetup() {
       localStorage.setItem('interviewQuestions', JSON.stringify(data));
       localStorage.setItem('interviewSetupData', JSON.stringify(submissionData));
       
-      navigate('/interview');
+      navigate('/device-setup');
     } catch (error) {
       console.error("Error:", error);
       alert(`Failed to setup interview: ${error.message}`);
@@ -149,11 +149,7 @@ function InterviewSetup() {
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      background: `url(${backgroundImage})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundAttachment: 'fixed',
-      backgroundRepeat: 'no-repeat',
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
       padding: '20px',
       position: 'fixed',
       top: 0,
@@ -164,29 +160,32 @@ function InterviewSetup() {
     }}>
       <div style={{
         backgroundColor: 'white',
-        borderRadius: '15px',
+        borderRadius: '20px',
         padding: '40px',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+        boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
         width: '100%',
         maxWidth: '500px',
-        margin: 'auto'
+        margin: 'auto',
+        backdropFilter: 'blur(10px)',
+        border: '1px solid rgba(255, 255, 255, 0.2)'
       }}>
         <h1 style={{
-          color: '#2c3e50',
-          marginBottom: '30px',
+          color: '#1a365d',
+          marginBottom: '40px',
           textAlign: 'center',
-          fontSize: '28px',
-          fontWeight: '600'
+          fontSize: '32px',
+          fontWeight: '700',
+          letterSpacing: '-0.5px'
         }}>Interview Setup</h1>
         
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '25px', position: 'relative' }} ref={dropdownRef}>
+          <div style={{ marginBottom: '30px', position: 'relative' }} ref={dropdownRef}>
             <label style={{
               display: 'block',
-              marginBottom: '8px',
-              color: '#34495e',
+              marginBottom: '10px',
+              color: '#2d3748',
               fontSize: '16px',
-              fontWeight: '500'
+              fontWeight: '600'
             }}>
               Select Role:
             </label>
@@ -200,38 +199,48 @@ function InterviewSetup() {
               ref={inputRef}
               style={{
                 width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e0',
+                padding: '15px',
+                borderRadius: '12px',
+                border: '2px solid #e2e8f0',
                 backgroundColor: '#f8fafc',
                 fontSize: '16px',
                 transition: 'all 0.3s ease',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box',
+                '&:focus': {
+                  borderColor: '#4299e1',
+                  boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.2)'
+                }
               }}
             />
             {showDropdown && (
               <ul style={{
                 position: 'absolute',
                 width: '100%',
-                maxHeight: '150px',
+                maxHeight: '200px',
                 overflowY: 'auto',
                 backgroundColor: 'white',
-                border: '1px solid black',
-                borderRadius: '8px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '12px',
                 marginTop: '5px',
                 zIndex: 1000,
                 listStyleType: 'none',
-                padding: 0
+                padding: '8px 0',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
               }}>
                 {filteredRoles.map(role => (
                   <li
                     key={role}
                     onClick={() => handleRoleChange(role)}
                     style={{
-                      padding: '10px',
+                      padding: '12px 16px',
                       cursor: 'pointer',
-                      backgroundColor: formData.role === role ? '#f0f0f0' : 'white',
-                      margin: '5px 0'
+                      backgroundColor: formData.role === role ? '#ebf8ff' : 'white',
+                      color: formData.role === role ? '#2b6cb0' : '#2d3748',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        backgroundColor: '#f7fafc'
+                      }
                     }}
                   >
                     {role}
@@ -242,13 +251,13 @@ function InterviewSetup() {
           </div>
 
           {showCustomRole && (
-            <div style={{ marginBottom: '25px' }}>
+            <div style={{ marginBottom: '30px' }}>
               <label style={{
                 display: 'block',
-                marginBottom: '8px',
-                color: '#34495e',
+                marginBottom: '10px',
+                color: '#2d3748',
                 fontSize: '16px',
-                fontWeight: '500'
+                fontWeight: '600'
               }}>
                 Specify Your Role:
               </label>
@@ -260,26 +269,30 @@ function InterviewSetup() {
                 placeholder="Enter your specific role"
                 style={{
                   width: '100%',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid #cbd5e0',
+                  padding: '15px',
+                  borderRadius: '12px',
+                  border: '2px solid #e2e8f0',
                   backgroundColor: '#f8fafc',
                   fontSize: '16px',
-                  boxSizing: 'border-box',
                   transition: 'all 0.3s ease',
-                  outline: 'none'
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  '&:focus': {
+                    borderColor: '#4299e1',
+                    boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.2)'
+                  }
                 }}
               />
             </div>
           )}
 
-          <div style={{ marginBottom: '25px' }}>
+          <div style={{ marginBottom: '30px' }}>
             <label style={{
               display: 'block',
-              marginBottom: '8px',
-              color: '#34495e',
+              marginBottom: '10px',
+              color: '#2d3748',
               fontSize: '16px',
-              fontWeight: '500'
+              fontWeight: '600'
             }}>
               Years of Experience:
             </label>
@@ -292,14 +305,18 @@ function InterviewSetup() {
               placeholder="Enter years of experience"
               style={{
                 width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '1px solid #cbd5e0',
+                padding: '15px',
+                borderRadius: '12px',
+                border: '2px solid #e2e8f0',
                 backgroundColor: '#f8fafc',
                 fontSize: '16px',
-                boxSizing: 'border-box',
                 transition: 'all 0.3s ease',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box',
+                '&:focus': {
+                  borderColor: '#4299e1',
+                  boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.2)'
+                }
               }}
             />
           </div>
@@ -309,19 +326,24 @@ function InterviewSetup() {
             disabled={loading}
             style={{
               width: '100%',
-              padding: '14px',
-              backgroundColor: loading ? '#94a3b8' : '#333333',
+              padding: '16px',
+              backgroundColor: loading ? '#90cdf4' : '#4299e1',
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '12px',
               fontSize: '16px',
-              fontWeight: '500',
+              fontWeight: '600',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'all 0.3s ease',
-              transform: loading ? 'scale(1)' : 'scale(1)',
-              hover: {
-                backgroundColor: '#1a1a1a',
-                transform: 'scale(1.02)'
+              boxShadow: '0 4px 6px rgba(66, 153, 225, 0.2)',
+              '&:hover': {
+                backgroundColor: loading ? '#90cdf4' : '#3182ce',
+                transform: loading ? 'none' : 'translateY(-2px)',
+                boxShadow: '0 6px 8px rgba(66, 153, 225, 0.3)'
+              },
+              '&:active': {
+                transform: 'translateY(0)',
+                boxShadow: '0 2px 4px rgba(66, 153, 225, 0.2)'
               }
             }}
           >

@@ -15,6 +15,10 @@ const globalStyle = `
     background-position: center;
     background-attachment: fixed;
     background-repeat: no-repeat;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
   }
 `;
 
@@ -433,6 +437,30 @@ function VideoFeed() {
   useEffect(() => {
     console.log("Current questions in state:", questions);
   }, [questions]);
+
+  // Add event handlers to prevent copy/paste
+  useEffect(() => {
+    const preventCopyPaste = (e) => {
+      e.preventDefault();
+      return false;
+    };
+
+    // Prevent copy/paste events
+    document.addEventListener('copy', preventCopyPaste);
+    document.addEventListener('paste', preventCopyPaste);
+    document.addEventListener('cut', preventCopyPaste);
+    
+    // Prevent context menu
+    document.addEventListener('contextmenu', preventCopyPaste);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('copy', preventCopyPaste);
+      document.removeEventListener('paste', preventCopyPaste);
+      document.removeEventListener('cut', preventCopyPaste);
+      document.removeEventListener('contextmenu', preventCopyPaste);
+    };
+  }, []);
 
   if (hasPermission === null) {
     return (

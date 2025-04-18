@@ -1,10 +1,15 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from './LoadingSpinner';
+import CodingQuestion from './CodingQuestion';
 
 function OnlineAssessment() {
   const navigate = useNavigate();
   const assessmentType = localStorage.getItem('assessmentType');
+
+  if (assessmentType === 'coding') {
+    return <CodingQuestion />;
+  }
 
   if (assessmentType === 'aptitude') {
     return (

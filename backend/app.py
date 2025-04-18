@@ -57,6 +57,10 @@ current_question = None
 TOGETHER_API_KEY = "06150d84db100f3ea0d4793266abeed1834b2b0ff3c1af53d650afab023bdef5"  # Replace with your actual Together API key
 TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
 
+# Add Judge0 API configuration
+JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com"
+JUDGE0_API_KEY = "41a8620634msh5e8490e4c4e7c17p158695jsn0a881d04a880"  
+
 def init_camera():
     global cap
     try:
@@ -760,6 +764,253 @@ def generate_aptitude_questions():
         print(f"Error generating aptitude questions: {str(e)}")
         return jsonify({
             "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/generate_coding_questions', methods=['GET'])
+def generate_coding_questions():
+    """
+    Generate coding questions using Together API.
+    Returns a JSON object containing coding questions with test cases.
+    """
+    try:
+        headers = {
+            'Authorization': f'Bearer {TOGETHER_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        
+        messages = [
+            {"role": "system", "content": "You are an expert at creating coding interview questions."},
+            {"role": "user", "content": """Generate 5 coding questions. Each question should include:
+            - Problem statement
+            - Sample input and output
+            - Test cases
+            - Expected time complexity
+            - Expected space complexity
+            
+            Format the response as JSON:
+            {
+                "questions": [
+                    {
+                        "id": 1,
+                        "title": "Question title",
+                        "description": "Problem statement",
+                        "sample_input": "Sample input",
+                        "sample_output": "Sample output",
+                        "test_cases": [
+                            {"input": "test input 1", "output": "expected output 1"},
+                            {"input": "test input 2", "output": "expected output 2"}
+                        ],
+                        "time_complexity": "O(n)",
+                        "space_complexity": "O(1)"
+                    }
+                ]
+            }
+            Ensure the response contains ONLY the JSON."""}
+        ]
+        
+        response = requests.post(
+            TOGETHER_API_URL,
+            headers=headers,
+            json={
+                "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 2000
+            }
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if "choices" not in result or not result["choices"]:
+                raise ValueError("No choices in API response")
+                
+            content = result["choices"][0]["message"]["content"]
+            
+            try:
+                json_str = re.search(r'\{[\s\S]*\}', content).group()
+                questions_data = json.loads(json_str)
+                return jsonify({
+                    "success": True,
+                    "questions": questions_data["questions"]
+                })
+            except (json.JSONDecodeError, AttributeError) as e:
+                print(f"Error parsing API response: {str(e)}")
+                raise ValueError("Invalid JSON in API response")
+        else:
+            return jsonify({
+                "success": False,
+                "error": f"API request failed with status {response.status_code}"
+            }), 500
+            
+    except Exception as e:
+        print(f"Error generating coding questions: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/execute', methods=['POST'])
+def execute_code():
+    data = request.json
+    code = data.get('code')
+    language = data.get('language')
+    test_cases = data.get('testCases')
+
+    if not all([code, language, test_cases]):
+        return jsonify({
+            'success': False,
+            'error': 'Missing required fields'
+        }), 400
+
+    # Prepare the code with test cases
+    if language == 'python':
+        wrapped_code = f'''
+{code}
+
+# Test cases
+def run_tests():
+    results = []
+    for i, test in enumerate({json.dumps(test_cases)}):
+        try:
+            result = two_sum(test["input"]["nums"], test["input"]["target"])
+            # Sort the results for comparison since order doesn't matter
+            if result is not None:
+                result = sorted(result)
+            expected = sorted(test["expectedOutput"])
+            passed = result == expected
+            results.append({{"passed": passed, "expected": expected, "actual": result}})
+        except Exception as e:
+            results.append({{"passed": False, "error": str(e)}})
+    return results
+
+print(json.dumps(run_tests()))
+'''
+    else:  # javascript
+        wrapped_code = f'''
+{code}
+
+// Test cases
+function runTests() {{
+    const tests = {json.dumps(test_cases)};
+    return tests.map(test => {{
+        try {{
+            const result = twoSum(test.input.nums, test.input.target);
+            // Sort the results for comparison since order doesn't matter
+            const sortedResult = result ? result.sort((a, b) => a - b) : null;
+            const sortedExpected = test.expectedOutput.sort((a, b) => a - b);
+            const passed = JSON.stringify(sortedResult) === JSON.stringify(sortedExpected);
+            return {{
+                passed,
+                expected: sortedExpected,
+                actual: sortedResult
+            }};
+        }} catch (e) {{
+            return {{
+                passed: false,
+                error: e.toString()
+            }};
+        }}
+    }});
+}}
+
+console.log(JSON.stringify(runTests()));
+'''
+
+    # Prepare the API request
+    url = f"https://{JUDGE0_API_URL}/submissions"
+    headers = {
+        'X-RapidAPI-Key': JUDGE0_API_KEY,
+        'X-RapidAPI-Host': JUDGE0_API_URL,
+        'Content-Type': 'application/json'
+    }
+
+    # Map languages to Judge0 language IDs
+    language_ids = {
+        'python': 71,  # Python (3.8.1)
+        'javascript': 63  # JavaScript (Node.js 12.14.0)
+    }
+
+    submission_data = {
+        'source_code': wrapped_code,
+        'language_id': language_ids[language],
+        'stdin': '',
+        'expected_output': None
+    }
+
+    try:
+        # Create submission
+        response = requests.post(url, headers=headers, json=submission_data)
+        submission = response.json()
+        token = submission.get('token')
+
+        if not token:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to create submission'
+            }), 500
+
+        # Get submission result
+        while True:
+            response = requests.get(f"{url}/{token}", headers=headers)
+            result = response.json()
+            
+            if result['status']['id'] not in [1, 2]:  # If not queued or processing
+                break
+
+        if result['status']['id'] == 3:  # Accepted
+            try:
+                test_results = json.loads(result['stdout'])
+                all_passed = all(test['passed'] for test in test_results)
+                return jsonify({
+                    'success': all_passed,
+                    'results': test_results
+                })
+            except json.JSONDecodeError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Invalid test results format'
+                }), 500
+        else:
+            error_message = result.get('stderr') or result.get('compile_output') or 'Execution failed'
+            return jsonify({
+                'success': False,
+                'error': error_message
+            }), 400
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/get_languages', methods=['GET'])
+def get_languages():
+    """
+    Get available programming languages from Judge0.
+    """
+    try:
+        headers = {
+            "X-RapidAPI-Key": JUDGE0_API_KEY,
+            "X-RapidAPI-Host": "judge0-ce.p.rapidapi.com"
+        }
+
+        response = requests.get(
+            f"{JUDGE0_API_URL}/languages",
+            headers=headers
+        )
+
+        if response.status_code != 200:
+            return jsonify({
+                "error": "Failed to get languages",
+                "details": response.text
+            }), 500
+
+        return jsonify(response.json())
+
+    except Exception as e:
+        print(f"Error getting languages: {str(e)}")
+        return jsonify({
             "error": str(e)
         }), 500
 

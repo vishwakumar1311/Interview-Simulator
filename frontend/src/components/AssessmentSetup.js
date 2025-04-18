@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import backgroundImage from './InterviewSetup-BG.jpg'; // Reusing the same background image
+import { Container, Box, Button, Typography } from '@mui/material';
 
 const ROLES = [
   // Engineering Roles

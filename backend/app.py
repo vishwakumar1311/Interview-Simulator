@@ -13,76 +13,85 @@ import requests
 import PyPDF2
 from io import BytesIO
 import jwt
-import speech_recognition as sr
+import json
+import queue
+import sounddevice as sd
+import numpy as np
+from scipy import signal
+from vosk import Model, KaldiRecognizer
+import wave
 import threading
 import traceback
 import re
-import json
 
 # Redirect stdout to devnull to suppress progress bar
 old_stdout = sys.stdout
 sys.stdout = open(os.devnull, 'w')
 
 app = Flask(__name__)
-CORS(app)
+# Configure CORS to allow all origins
+CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['SECRET_KEY'] = 'your-secret-key'  # Change this to a secure secret key
 
+# Initialize face detection
 mp_face_detection = mp.solutions.face_detection
 face_detection = mp_face_detection.FaceDetection(min_detection_confidence=0.5)
+
+# Global variables
 cap = None
-
-# Add global variables for emotion tracking
-emotion_counts = defaultdict(int)
-total_emotions = 0
-
-# Add these global variables at the top with other globals
 video_writer = None
 recording = False
 output_folder = "recorded_videos"
+emotion_counts = defaultdict(int)
+total_emotions = 0
+
+# Audio processing variables
+audio_queue = queue.Queue()
+is_recording = False
+audio_data = []
+sample_rate = 16000
+channels = 1
+audio_stream = None
+current_question = None
+interview_responses = []
+audio_buffer = []
+buffer_size = 4096  # Increased buffer size for better processing
+
+# API Configuration
+TOGETHER_API_KEY = "06150d84db100f3ea0d4793266abeed1834b2b0ff3c1af53d650afab023bdef5"
+TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
+JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com"
+JUDGE0_API_KEY = "41a8620634msh5e8490e4c4e7c17p158695jsn0a881d04a880"
 
 # Create output folder if it doesn't exist
 if not os.path.exists(output_folder):
     os.makedirs(output_folder)
 
-# Add global variable for speech recognition
-recognizer = sr.Recognizer()
-is_listening = False
-current_response = ""
+# Initialize Vosk model
+model_path = "model"
+if not os.path.exists(model_path):
+    print("Please download the model from https://alphacephei.com/vosk/models and extract it to the 'model' directory")
+    sys.exit(1)
 
-# Add global variables for storing interview responses
-interview_responses = []
-current_question = None
-
-# Add Together API configuration at the top of the file
-TOGETHER_API_KEY = "06150d84db100f3ea0d4793266abeed1834b2b0ff3c1af53d650afab023bdef5"  # Replace with your actual Together API key
-TOGETHER_API_URL = "https://api.together.xyz/v1/chat/completions"
-
-# Add Judge0 API configuration
-JUDGE0_API_URL = "https://judge0-ce.p.rapidapi.com"
-JUDGE0_API_KEY = "41a8620634msh5e8490e4c4e7c17p158695jsn0a881d04a880"  
+model = Model(model_path)
 
 def init_camera():
     global cap
     try:
-        # Make sure to properly release any existing camera
         if cap is not None:
             cap.release()
             cv2.destroyAllWindows()
             cap = None
         
-        # Add a small delay before opening new capture
         time.sleep(0.5)
-        
         cap = cv2.VideoCapture(0)
         
-        # Try reopening if first attempt fails
         if not cap.isOpened():
             cap.release()
-            time.sleep(1)  # Wait a bit longer
+            time.sleep(1)
             cap = cv2.VideoCapture(0)
         
         if cap.isOpened():
-            # Set camera properties for better performance
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             cap.set(cv2.CAP_PROP_FPS, 30)
@@ -105,7 +114,103 @@ def analyze_face(frame):
     except:
         return None
 
+def apply_noise_reduction(audio_data):
+    """Apply noise reduction to audio data"""
+    try:
+        # Convert to numpy array
+        audio_array = np.frombuffer(audio_data, dtype=np.int16)
+        
+        # Apply a high-pass filter to remove low-frequency noise
+        b, a = signal.butter(4, 100/(sample_rate/2), btype='high')
+        filtered_audio = signal.filtfilt(b, a, audio_array)
+        
+        # Normalize the audio with increased gain
+        max_val = max(abs(filtered_audio))
+        if max_val > 0:
+            gain = 1.5  # Increase gain for better sensitivity
+            normalized_audio = np.int16(filtered_audio * (32767/max_val) * gain)
+        else:
+            normalized_audio = filtered_audio
+        
+        return normalized_audio.tobytes()
+    except Exception as e:
+        print(f"Error in noise reduction: {str(e)}")
+        return audio_data
+
+def audio_callback(indata, frames, time, status):
+    """Callback for audio stream"""
+    if status:
+        print(f"Audio callback status: {status}")
+    if is_recording:
+        # Apply noise reduction
+        processed_audio = apply_noise_reduction(bytes(indata))
+        audio_queue.put(processed_audio)
+
+def process_audio():
+    """Process audio data from queue"""
+    global is_recording, audio_data
+    try:
+        rec = KaldiRecognizer(model, sample_rate)
+        rec.SetWords(True)
+        
+        print("\n=== Starting Audio Transcription ===")
+        print("Listening... (Press Ctrl+C to stop)\n")
+        
+        # Initialize variables for tracking silence
+        silence_threshold = 0.1
+        silence_counter = 0
+        last_transcription = ""
+        
+        while is_recording:
+            try:
+                # Get audio data with timeout
+                data = audio_queue.get(timeout=1)
+                
+                # Process the audio data
+                if rec.AcceptWaveform(data):
+                    result = json.loads(rec.Result())
+                    if result.get("text"):
+                        transcribed_text = result["text"].strip()
+                        if transcribed_text and transcribed_text != last_transcription:
+                            audio_data.append(transcribed_text)
+                            print(f"Transcribed: {transcribed_text}")
+                            last_transcription = transcribed_text
+                            silence_counter = 0
+                
+                # Get partial results
+                partial = json.loads(rec.PartialResult())
+                if partial.get("partial"):
+                    partial_text = partial["partial"].strip()
+                    if partial_text:
+                        print(f"Partial: {partial_text}", end='\r')
+                        silence_counter = 0
+                    else:
+                        silence_counter += 1
+                
+                # Check for extended silence
+                if silence_counter > 10:  # Adjust this threshold as needed
+                    print("\nDetected extended silence. Waiting for speech...")
+                    silence_counter = 0
+                    
+            except queue.Empty:
+                continue
+            except Exception as e:
+                print(f"Error processing audio: {str(e)}")
+                continue
+        
+        # Get final result
+        result = json.loads(rec.FinalResult())
+        if result.get("text"):
+            final_text = result["text"].strip()
+            if final_text and final_text != last_transcription:
+                audio_data.append(final_text)
+                print(f"\nFinal transcription: {final_text}")
+        print("=== Audio Transcription Complete ===\n")
+    except Exception as e:
+        print(f"Error in process_audio: {str(e)}")
+
 def generate_frames():
+    """Generate video frames"""
     global cap, video_writer, recording
     if not init_camera():
         print("Failed to initialize camera in generate_frames")
@@ -146,7 +251,7 @@ def generate_frames():
             
             except Exception as e:
                 print(f"Error processing frame: {str(e)}")
-                break
+                continue
 
     except Exception as e:
         print(f"Error in generate_frames: {str(e)}")
@@ -268,15 +373,11 @@ def start_recording():
 
 @app.route('/stop_camera', methods=['POST'])
 def stop_camera():
-    global cap, emotion_counts, total_emotions, video_writer, recording, is_listening
+    global cap, emotion_counts, total_emotions, video_writer, recording, is_recording
     try:
         print("Stopping recording and cleaning up resources...")
         
-        # First stop listening if active
-        is_listening = False
-        time.sleep(0.5)  # Give time for listening thread to stop
-        
-        # Stop recording first
+        # First stop recording if active
         recording = False
         time.sleep(0.5)  # Give time for recording to stop
         
@@ -325,7 +426,6 @@ def stop_camera():
         print("Stack trace:", traceback.format_exc())
         # Ensure cleanup even on error
         recording = False
-        is_listening = False
         if video_writer is not None:
             try:
                 video_writer.release()
@@ -345,23 +445,35 @@ def stop_camera():
         }), 500
 
 def cleanup():
-    global cap, emotion_counts, total_emotions, video_writer, recording
+    """Cleanup resources"""
+    global cap, video_writer, recording, audio_stream, is_recording
     try:
         recording = False
+        is_recording = False
+        
         if video_writer is not None:
             video_writer.release()
+            video_writer = None
+            
         if cap is not None:
             cap.release()
             cap = None
+            
+        if audio_stream is not None:
+            audio_stream.stop()
+            audio_stream.close()
+            audio_stream = None
+            
         cv2.destroyAllWindows()
         sys.stdout = old_stdout
+        
         # Reset emotion tracking
-        emotion_counts = defaultdict(int)
+        emotion_counts.clear()
         total_emotions = 0
     except Exception as e:
         print(f"Error during cleanup: {str(e)}")
 
-# Register cleanup function to run on exit
+# Register cleanup function
 atexit.register(cleanup)
 
 @app.route('/generate_questions', methods=['POST'])
@@ -479,89 +591,79 @@ def login():
     
     return jsonify({'message': 'Invalid credentials'}), 401
 
-def listen_for_speech():
-    global is_listening, current_response, current_question
-    with sr.Microphone() as source:
-        print("Listening for speech...")
-        # Adjust for ambient noise with longer duration for better calibration
-        recognizer.adjust_for_ambient_noise(source, duration=2)
-        
-        # Initialize empty list to store all responses
-        all_responses = []
-        
-        while is_listening:
-            try:
-                # Use non-blocking listen with longer timeout
-                # Set phrase_time_limit to None to allow unlimited recording
-                audio = recognizer.listen(source, timeout=5, phrase_time_limit=None)
-                
-                # Use Google's speech recognition with better settings
-                text = recognizer.recognize_google(
-                    audio,
-                    language="en-US",
-                    show_all=False
-                )
-                
-                if text:
-                    # Clean up the text
-                    text = text.strip()
-                    if text:
-                        all_responses.append(text)
-                        current_response = " ".join(all_responses)  # Join all responses
-                        print(f"User said: {text}")
-                        print(f"Full response so far: {current_response}")
-                
-            except sr.WaitTimeoutError:
-                continue
-            except sr.UnknownValueError:
-                print("Could not understand audio")
-            except sr.RequestError as e:
-                print(f"Could not request results; {e}")
-            except Exception as e:
-                print(f"Error in speech recognition: {str(e)}")
-
 @app.route('/start_listening', methods=['POST'])
 def start_listening():
-    global is_listening, current_response, current_question
-    if not is_listening:
-        is_listening = True
-        current_response = ""  # Reset response when starting new recording
-        
-        # Get the current question from the request
+    """Start audio recording and transcription"""
+    global is_recording, audio_data, current_question, audio_stream
+    try:
         data = request.get_json()
-        if data and 'question' in data:
-            current_question = data['question']
-            print(f"Starting recording for question: {current_question}")
+        current_question = data.get('question')
         
-        threading.Thread(target=listen_for_speech, daemon=True).start()
+        # Reset audio data
+        audio_data = []
+        is_recording = True
+        
+        print(f"\nStarting recording for question: {current_question}")
+        
+        # Start audio stream with optimized settings
+        audio_stream = sd.InputStream(
+            samplerate=sample_rate,
+            channels=channels,
+            callback=audio_callback,
+            blocksize=buffer_size,
+            dtype=np.int16,
+            latency='low'  # Use low latency for better real-time processing
+        )
+        audio_stream.start()
+        
+        # Start processing thread
+        threading.Thread(target=process_audio, daemon=True).start()
+        
         return jsonify({"status": "Started listening"})
-    return jsonify({"status": "Already listening"})
+    except Exception as e:
+        print(f"Error starting listening: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/stop_listening', methods=['POST'])
 def stop_listening():
-    global is_listening, current_response, current_question, interview_responses
-    is_listening = False
-    
-    # Store the response with its question
-    if current_question and current_response:
-        response_data = {
-            "question": current_question,
-            "response": current_response,
-            "timestamp": datetime.now().isoformat()
-        }
-        interview_responses.append(response_data)
-        print(f"Stored response for question: {current_question}")
-        print(f"Current interview responses: {interview_responses}")
-    
-    response = current_response
-    current_response = ""
-    current_question = None
-    
-    return jsonify({
-        "status": "Stopped listening",
-        "response": response,
-        "interview_responses": interview_responses
-    })
+    """Stop audio recording and get transcription"""
+    global is_recording, audio_data, current_question, audio_stream
+    try:
+        print("\nStopping recording...")
+        is_recording = False
+        time.sleep(0.5)  # Give time for final processing
+        
+        # Stop audio stream
+        if audio_stream is not None:
+            audio_stream.stop()
+            audio_stream.close()
+            audio_stream = None
+        
+        # Combine all transcribed text
+        transcribed_text = " ".join(audio_data)
+        
+        # Validate transcription
+        if not transcribed_text or transcribed_text.isspace():
+            print("Warning: Empty or invalid transcription detected")
+            transcribed_text = "No speech detected. Please try again."
+        
+        # Add to interview responses
+        if current_question:
+            interview_responses.append({
+                "question": current_question,
+                "response": transcribed_text
+            })
+            print(f"\nQuestion: {current_question}")
+            print(f"Response: {transcribed_text}")
+        
+        return jsonify({
+            "status": "Stopped listening",
+            "response": transcribed_text,
+            "interview_responses": interview_responses
+        })
+    except Exception as e:
+        print(f"Error stopping listening: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/get_interview_responses', methods=['GET'])
 def get_interview_responses():
@@ -1015,14 +1117,9 @@ def get_languages():
         }), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
-
-
-if __name__ == "__main__":
     try:
         init_camera()
-        app.run(debug=False, threaded=True)  # Changed debug to False and added threaded=True
+        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
     except Exception as e:
         print(f"Error running server: {str(e)}")
     finally:

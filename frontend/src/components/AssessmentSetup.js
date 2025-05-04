@@ -310,12 +310,6 @@ function AssessmentSetup() {
             icon="🧮"
           />
 
-          <AssessmentCard
-            title="Technical Concepts"
-            description="Evaluate your understanding of technical concepts and industry best practices."
-            type="technical"
-            icon="💡"
-          />
 
           <AssessmentCard
             title="Coding Challenge"

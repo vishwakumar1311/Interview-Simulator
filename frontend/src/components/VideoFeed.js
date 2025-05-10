@@ -57,6 +57,9 @@ function VideoFeed() {
   const [interviewState, setInterviewState] = useState('idle');
   const [interviewEvaluation, setInterviewEvaluation] = useState(null);
   const [isProcessingInterview, setIsProcessingInterview] = useState(false);
+  const [videoStream, setVideoStream] = useState(null);
+  const userVideoRef = useRef();
+  const [videoLoading, setVideoLoading] = useState(true);
 
   useEffect(() => {
     const init = async () => {
@@ -150,13 +153,6 @@ function VideoFeed() {
     }
   };
 
-  useEffect(() => {
-    if (hasPermission) {
-      const video = videoRef.current;
-      video.onerror = handleCameraError;
-    }
-  }, [hasPermission]);
-
   // Function to speak the question
   const speakQuestion = (question) => {
     speechSynthesis.cancel();
@@ -233,7 +229,7 @@ function VideoFeed() {
       // Start first actual question
       if (questions.length > 0 && questions[0]) {
         setTimeout(() => {
-          speakQuestion(questions[0].question);
+          speakQuestion(questions[0]);
         }, 500);
       }
       return;
@@ -247,8 +243,8 @@ function VideoFeed() {
         setAttemptedQuestions(prev => prev + 1);
         
         setTimeout(() => {
-          if (nextQuestion && nextQuestion.question) {
-            speakQuestion(nextQuestion.question);
+          if (nextQuestion) {
+            speakQuestion(nextQuestion);
           }
         }, 500);
         
@@ -364,6 +360,11 @@ function VideoFeed() {
       setShowQuestions(false);
       setInterviewStarted(false);
       setShowSummary(true);
+      
+      // Stop the local webcam stream
+      if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+      }
       
     } catch (error) {
       console.error('Error stopping interview:', error);
@@ -632,17 +633,27 @@ function VideoFeed() {
                   backgroundColor: '#2d2d2d',
                   borderRadius: '10px',
                   overflow: 'hidden',
-                  position: 'relative'
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
                 }}>
+                  {videoLoading && (
+                    <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(30,30,30,0.7)', zIndex: 2 }}>
+                      <LoadingSpinner size="large" color="#4CAF50" />
+                    </div>
+                  )}
                   <img
                     src="http://127.0.0.1:5000/video_feed"
                     alt="Candidate Face"
                     style={{
                       width: '100%',
                       height: '100%',
-                      objectFit: 'cover'
+                      objectFit: 'cover',
+                      display: videoLoading ? 'none' : 'block'
                     }}
-                    ref={videoRef}
+                    onLoad={() => setVideoLoading(false)}
+                    onError={() => setVideoLoading(true)}
                   />
                   <div style={{
                     position: 'absolute',
@@ -650,7 +661,8 @@ function VideoFeed() {
                     left: '10px',
                     backgroundColor: 'rgba(0,0,0,0.6)',
                     padding: '5px 10px',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    zIndex: 3
                   }}>
                     You
                   </div>
@@ -808,14 +820,14 @@ function VideoFeed() {
                   </div>
 
                   {/* Emotion Analysis Section */}
-                  {emotionSummary.emotion_summary && emotionSummary.emotion_summary.summary && (
-                    <div style={{
-                      backgroundColor: '#333',
-                      padding: '20px',
-                      borderRadius: '10px',
-                      marginTop: '20px'
-                    }}>
-                      <h3 style={{ color: '#fff', marginBottom: '20px' }}>Emotion Analysis</h3>
+                  <div style={{
+                    backgroundColor: '#333',
+                    padding: '20px',
+                    borderRadius: '10px',
+                    marginTop: '20px'
+                  }}>
+                    <h3 style={{ color: '#fff', marginBottom: '20px' }}>Emotion Analysis</h3>
+                    {emotionSummary.emotion_summary && emotionSummary.emotion_summary.summary && Object.keys(emotionSummary.emotion_summary.summary).length > 0 ? (
                       <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
@@ -850,26 +862,30 @@ function VideoFeed() {
                           </div>
                         ))}
                       </div>
-                      {emotionSummary.emotion_summary.dominant_emotion && (
-                        <div style={{
-                          marginTop: '20px',
-                          textAlign: 'center',
-                          padding: '15px',
-                          backgroundColor: '#2d2d2d',
-                          borderRadius: '8px'
+                    ) : (
+                      <div style={{ color: '#bbb', textAlign: 'center', marginTop: '10px' }}>
+                        No emotion data available.
+                      </div>
+                    )}
+                    {emotionSummary.emotion_summary && emotionSummary.emotion_summary.dominant_emotion && (
+                      <div style={{
+                        marginTop: '20px',
+                        textAlign: 'center',
+                        padding: '15px',
+                        backgroundColor: '#2d2d2d',
+                        borderRadius: '8px'
+                      }}>
+                        <span style={{ color: '#888' }}>Dominant Emotion: </span>
+                        <span style={{ 
+                          color: '#4CAF50',
+                          fontWeight: 'bold',
+                          textTransform: 'capitalize'
                         }}>
-                          <span style={{ color: '#888' }}>Dominant Emotion: </span>
-                          <span style={{ 
-                            color: '#4CAF50',
-                            fontWeight: 'bold',
-                            textTransform: 'capitalize'
-                          }}>
-                            {emotionSummary.emotion_summary.dominant_emotion}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                          {emotionSummary.emotion_summary.dominant_emotion}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
